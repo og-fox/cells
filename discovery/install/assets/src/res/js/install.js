@@ -342,9 +342,11 @@ class InstallForm extends React.Component {
                         <div style={stepperStyles.contentScroller}>
                             <h3>{this.t('license.title')}</h3>
                             {licCheckPassed &&
-                                <div style={{padding:'20px 0', color:'#388E3C', fontSize:14}}>{this.t('license.success')}.
-                                    <br/>{this.t('license.details').replace('%count', licCheckPassed.users).replace('%expiration', new Date(licCheckPassed.expireTime*1000).toISOString())}.
-                                    </div>
+                                <div style={{padding:'20px 0', color:'#388E3C', fontSize:14}}>
+                                    {this.t('license.success')}
+                                    <br/>
+                                    {this.t('license.details').replace('%count', licCheckPassed.users).replace('%expiration', new Date(licCheckPassed.expireTime*1000).toISOString())}
+                                </div>
                             }
                             {licCheckFailed &&
                                 <div style={{color: '#E53935', paddingTop: 10, fontWeight: 500}}>{this.t('license.failed')}</div>
@@ -518,13 +520,6 @@ class InstallForm extends React.Component {
                             </div>
                             <div>
                                 <Field name="dsFolder" component={renderTextField} floatingLabel={this.t('form.dsFolder.label')} label={this.t('form.dsFolder.legend')} />
-                            </div>
-                            <div style={{marginTop: 20}}>
-                                {this.t('advanced.default.oidc')}
-                            </div>
-                            <div style={{display:'flex'}}>
-                                <div style={{flex: 1, marginRight: 2}}><Field name="externalDexID" component={renderTextField} floatingLabel={this.t('form.externalDexID.label')} label={this.t('form.externalDexID.legend')}/></div>
-                                <div style={{flex: 1, marginLeft: 2}}><Field name="externalDexSecret" component={renderTextField} floatingLabel={this.t('form.externalDexSecret.label')} label={this.t('form.externalDexSecret.legend')}/></div>
                             </div>
                         </div>
                         }

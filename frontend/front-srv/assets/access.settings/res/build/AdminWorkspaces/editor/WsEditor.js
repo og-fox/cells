@@ -45,6 +45,8 @@ var _react2 = _interopRequireDefault(_react);
 
 var _materialUi = require('material-ui');
 
+var _materialUiStyles = require('material-ui/styles');
+
 var _modelWs = require('../model/Ws');
 
 var _modelWs2 = _interopRequireDefault(_modelWs);
@@ -151,12 +153,16 @@ var WsEditor = (function (_React$Component) {
             var reloadList = _props2.reloadList;
             var pydio = _props2.pydio;
 
-            if (confirm(pydio.MessageHash['settings.35'])) {
-                container.remove().then(function () {
-                    reloadList();
-                    closeEditor();
-                });
-            }
+            pydio.UI.openConfirmDialog({
+                message: pydio.MessageHash['settings.35'],
+                destructive: [container.getModel().Label],
+                validCallback: function validCallback() {
+                    container.remove().then(function () {
+                        reloadList();
+                        closeEditor();
+                    });
+                }
+            });
         }
     }, {
         key: 'render',
@@ -228,6 +234,7 @@ var WsEditor = (function (_React$Component) {
                 delButton
             );
 
+            var adminStyles = AdminComponents.AdminStyles(this.props.muiTheme.palette);
             var styles = {
                 title: {
                     fontSize: 20,
@@ -235,7 +242,7 @@ var WsEditor = (function (_React$Component) {
                     marginBottom: 0
                 },
                 legend: { color: '#9E9E9E', paddingTop: 10 },
-                section: { padding: '0 20px 20px', margin: 10, backgroundColor: 'white' },
+                section: _extends({ padding: '0 20px 20px', margin: 10, backgroundColor: 'white' }, adminStyles.body.block.container),
                 toggleDiv: { height: 50, display: 'flex', alignItems: 'flex-end' }
             };
 
@@ -313,7 +320,7 @@ var WsEditor = (function (_React$Component) {
                 ),
                 _react2['default'].createElement(
                     _materialUi.Paper,
-                    { zDepth: 1, style: styles.section },
+                    { zDepth: 0, style: styles.section },
                     _react2['default'].createElement(
                         'div',
                         { style: styles.title },
@@ -358,7 +365,7 @@ var WsEditor = (function (_React$Component) {
                 ),
                 _react2['default'].createElement(
                     _materialUi.Paper,
-                    { zDepth: 1, style: styles.section },
+                    { zDepth: 0, style: styles.section },
                     _react2['default'].createElement(
                         'div',
                         { style: styles.title },
@@ -379,7 +386,7 @@ var WsEditor = (function (_React$Component) {
                         ModernSelectField,
                         {
                             fullWidth: true,
-                            value: workspace.Attributes['DEFAULT_RIGHTS'],
+                            value: workspace.Attributes['DEFAULT_RIGHTS'] || '',
                             onChange: function (e, i, v) {
                                 workspace.Attributes['DEFAULT_RIGHTS'] = v;
                             }
@@ -392,7 +399,7 @@ var WsEditor = (function (_React$Component) {
                 ),
                 advanced && _react2['default'].createElement(
                     _materialUi.Paper,
-                    { zDepth: 1, style: styles.section },
+                    { zDepth: 0, style: styles.section },
                     _react2['default'].createElement(
                         'div',
                         { style: styles.title },
@@ -455,5 +462,6 @@ var WsEditor = (function (_React$Component) {
     return WsEditor;
 })(_react2['default'].Component);
 
+exports['default'] = WsEditor = (0, _materialUiStyles.muiThemeable)()(WsEditor);
 exports['default'] = WsEditor;
 module.exports = exports['default'];

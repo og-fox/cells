@@ -17817,7 +17817,7 @@ var _extends = Object.assign || function (target) { for (var i = 1; i < argument
 
 var _createClass = (function () { function defineProperties(target, props) { for (var i = 0; i < props.length; i++) { var descriptor = props[i]; descriptor.enumerable = descriptor.enumerable || false; descriptor.configurable = true; if ('value' in descriptor) descriptor.writable = true; Object.defineProperty(target, descriptor.key, descriptor); } } return function (Constructor, protoProps, staticProps) { if (protoProps) defineProperties(Constructor.prototype, protoProps); if (staticProps) defineProperties(Constructor, staticProps); return Constructor; }; })();
 
-var _get = function get(_x3, _x4, _x5) { var _again = true; _function: while (_again) { var object = _x3, property = _x4, receiver = _x5; _again = false; if (object === null) object = Function.prototype; var desc = Object.getOwnPropertyDescriptor(object, property); if (desc === undefined) { var parent = Object.getPrototypeOf(object); if (parent === null) { return undefined; } else { _x3 = parent; _x4 = property; _x5 = receiver; _again = true; desc = parent = undefined; continue _function; } } else if ('value' in desc) { return desc.value; } else { var getter = desc.get; if (getter === undefined) { return undefined; } return getter.call(receiver); } } };
+var _get = function get(_x4, _x5, _x6) { var _again = true; _function: while (_again) { var object = _x4, property = _x5, receiver = _x6; _again = false; if (object === null) object = Function.prototype; var desc = Object.getOwnPropertyDescriptor(object, property); if (desc === undefined) { var parent = Object.getPrototypeOf(object); if (parent === null) { return undefined; } else { _x4 = parent; _x5 = property; _x6 = receiver; _again = true; desc = parent = undefined; continue _function; } } else if ('value' in desc) { return desc.value; } else { var getter = desc.get; if (getter === undefined) { return undefined; } return getter.call(receiver); } } };
 
 function _interopRequireDefault(obj) { return obj && obj.__esModule ? obj : { 'default': obj }; }
 
@@ -17855,9 +17855,21 @@ var _pydio = require('pydio');
 
 var _pydio2 = _interopRequireDefault(_pydio);
 
+var _pydioHttpApi = require('pydio/http/api');
+
+var _pydioHttpApi2 = _interopRequireDefault(_pydioHttpApi);
+
+var _pydioHttpResourcesManager = require('pydio/http/resources-manager');
+
+var _pydioHttpResourcesManager2 = _interopRequireDefault(_pydioHttpResourcesManager);
+
 var _modelDataSource = require('../model/DataSource');
 
 var _modelDataSource2 = _interopRequireDefault(_modelDataSource);
+
+var _modelWs = require('../model/Ws');
+
+var _modelWs2 = _interopRequireDefault(_modelWs);
 
 var _pydioHttpRestApi = require('pydio/http/rest-api');
 
@@ -17907,7 +17919,7 @@ var DataSourcesBoard = (function (_React$Component) {
         value: function componentDidMount() {
             var _this = this;
 
-            var api = new _pydioHttpRestApi.ConfigServiceApi(PydioApi.getRestClient());
+            var api = new _pydioHttpRestApi.ConfigServiceApi(_pydioHttpApi2['default'].getRestClient());
             this.statusPoller = setInterval(function () {
                 _modelDataSource2['default'].loadStatuses().then(function (data) {
                     _this.setState({ startedServices: data.Services });
@@ -17984,6 +17996,11 @@ var DataSourcesBoard = (function (_React$Component) {
         value: function computeStatus(dataSource) {
             var _this3 = this;
 
+            var asNumber = arguments.length <= 1 || arguments[1] === undefined ? false : arguments[1];
+
+            if (asNumber && dataSource.Disabled) {
+                return -1;
+            }
             var _state = this.state;
             var startedServices = _state.startedServices;
             var peerAddresses = _state.peerAddresses;
@@ -18011,6 +18028,9 @@ var DataSourcesBoard = (function (_React$Component) {
                         _this3.setState({ newDsName: null });
                     }, 100);
                 }
+                if (asNumber) {
+                    return 0;
+                }
                 return _react2['default'].createElement(
                     'span',
                     { style: { color: '#1b5e20' } },
@@ -18019,6 +18039,9 @@ var DataSourcesBoard = (function (_React$Component) {
                     m('status.ok')
                 );
             } else if (newDsName && dataSource.Name === newDsName) {
+                if (asNumber) {
+                    return 1;
+                }
                 return _react2['default'].createElement(
                     'span',
                     { style: { color: '#ef6c00' } },
@@ -18030,6 +18053,9 @@ var DataSourcesBoard = (function (_React$Component) {
                 var koMessage = m('status.ko');
                 if (peerAddresses && peerAddresses.indexOf(dataSource.PeerAddress) === -1) {
                     koMessage = m('status.ko-peers').replace('%s', dataSource.PeerAddress);
+                }
+                if (asNumber) {
+                    return 2;
                 }
                 return _react2['default'].createElement(
                     'span',
@@ -18048,6 +18074,9 @@ var DataSourcesBoard = (function (_React$Component) {
                 }
                 if (!object) {
                     services.push(m('status.object'));
+                }
+                if (asNumber) {
+                    return 3;
                 }
                 return _react2['default'].createElement(
                     'span',
@@ -18101,17 +18130,41 @@ var DataSourcesBoard = (function (_React$Component) {
             });
         }
     }, {
+        key: 'deleteVersionPolicy',
+        value: function deleteVersionPolicy(policy) {
+            var _this4 = this;
+
+            var pydio = this.props.pydio;
+
+            pydio.UI.openConfirmDialog({
+                message: pydio.MessageHash['ajxp_admin.versions.editor.delete.confirm'],
+                destructive: [policy.Name],
+                validCallback: function validCallback() {
+                    _pydioHttpResourcesManager2['default'].loadClass('EnterpriseSDK').then(function (sdk) {
+                        var api = new sdk.EnterpriseConfigServiceApi(_pydioHttpApi2['default'].getRestClient());
+                        api.deleteVersioningPolicy(policy.Uuid).then(function (r) {
+                            _this4.load();
+                        });
+                    });
+                }
+            });
+        }
+    }, {
         key: 'createDataSource',
         value: function createDataSource() {
             var _props3 = this.props;
             var pydio = _props3.pydio;
             var storageTypes = _props3.storageTypes;
+            var dataSources = this.state.dataSources;
 
             this.props.openRightPane({
                 COMPONENT: _editorDataSourceEditor2['default'],
                 PROPS: {
                     ref: "editor",
                     create: true,
+                    existingNames: dataSources.map(function (ds) {
+                        return ds.Name;
+                    }),
                     pydio: pydio,
                     storageTypes: storageTypes,
                     closeEditor: this.closeEditor.bind(this),
@@ -18120,9 +18173,63 @@ var DataSourcesBoard = (function (_React$Component) {
             });
         }
     }, {
+        key: 'resyncDataSource',
+        value: function resyncDataSource(pydio, m, row) {
+            pydio.UI.openConfirmDialog({
+                message: m('editor.legend.resync'),
+                skipNext: 'datasource.resync.confirm',
+                validCallback: function validCallback() {
+                    var ds = new _modelDataSource2['default'](row);
+                    ds.resyncSource();
+                }
+            });
+        }
+    }, {
+        key: 'deleteDataSource',
+        value: function deleteDataSource(pydio, m, row) {
+            var _this5 = this;
+
+            pydio.UI.openConfirmDialog({
+                message: m('editor.delete.warning'),
+                validCallback: function validCallback() {
+                    var ds = new _modelDataSource2['default'](row);
+                    ds.deleteSource().then(function () {
+                        _this5.load();
+                    });
+                },
+                destructive: [row.Name]
+            });
+        }
+    }, {
+        key: 'createWorkspaceFromDatasource',
+        value: function createWorkspaceFromDatasource(pydio, m, row) {
+            var ws = new _modelWs2['default']();
+            var model = ws.getModel();
+            var dsName = row.Name;
+            model.Label = dsName;
+            model.Description = "Root of " + dsName;
+            model.Slug = dsName;
+            model.Attributes['DEFAULT_RIGHTS'] = '';
+            var roots = model.RootNodes;
+            var fakeRoot = { Uuid: 'DATASOURCE:' + dsName, Path: dsName };
+            roots[fakeRoot.Uuid] = fakeRoot;
+            pydio.UI.openComponentInModal('PydioReactUI', 'PromptDialog', {
+                dialogTitle: m('board.wsfromds.title'),
+                legendId: m('board.wsfromds.legend').replace('%s', dsName),
+                fieldLabelId: m('board.wsfromds.field'),
+                defaultValue: m('board.wsfromds.defaultPrefix').replace('%s', dsName),
+                submitValue: function submitValue(v) {
+                    model.Label = v;
+                    ws.save().then(function () {
+                        pydio.goTo('/data/workspaces');
+                    });
+                }
+            });
+        }
+    }, {
         key: 'render',
         value: function render() {
-            var _this4 = this;
+            var _this6 = this;
 
             var _state2 = this.state;
             var dataSources = _state2.dataSources;
@@ -18145,15 +18252,20 @@ var DataSourcesBoard = (function (_React$Component) {
             var versioningReadonly = _props4.versioningReadonly;
             var accessByName = _props4.accessByName;
 
-            var dsColumns = [{ name: 'Name', label: m('name'), style: { fontSize: 15, width: '20%' }, headerStyle: { width: '20%' } }, { name: 'Status', label: m('status'), renderCell: function renderCell(row) {
+            var dsColumns = [{ name: 'Name', label: m('name'), style: { fontSize: 15, width: '20%' }, headerStyle: { width: '20%' }, sorter: { type: 'string', 'default': true } }, { name: 'Status', label: m('status'),
+                renderCell: function renderCell(row) {
                     return row.Disabled ? _react2['default'].createElement(
                         'span',
                         { style: { color: '#757575' } },
                         _react2['default'].createElement('span', { className: "mdi mdi-checkbox-blank-circle-outline" }),
                         ' ',
                         m('status.disabled')
-                    ) : _this4.computeStatus(row);
-                } }, { name: 'StorageType', label: m('storage'), hideSmall: true, style: { width: '20%' }, headerStyle: { width: '20%' }, renderCell: function renderCell(row) {
+                    ) : _this6.computeStatus(row);
+                },
+                sorter: { type: 'number', value: function value(row) {
+                        return _this6.computeStatus(row, true);
+                    } }
+            }, { name: 'StorageType', label: m('storage'), hideSmall: true, style: { width: '20%' }, headerStyle: { width: '20%' }, renderCell: function renderCell(row) {
                     var s = 'storage.fs';
                     switch (row.StorageType) {
                         case "S3":
@@ -18169,7 +18281,7 @@ var DataSourcesBoard = (function (_React$Component) {
                             break;
                     }
                     return m(s);
-                } }, { name: 'VersioningPolicyName', label: m('versioning'), style: { width: '15%' }, headerStyle: { width: '15%' }, hideSmall: true, renderCell: function renderCell(row) {
+                }, sorter: { type: 'string' } }, { name: 'VersioningPolicyName', label: m('versioning'), style: { width: '15%' }, headerStyle: { width: '15%' }, hideSmall: true, renderCell: function renderCell(row) {
                     var pol = versioningPolicies.find(function (obj) {
                         return obj.Uuid === row['VersioningPolicyName'];
                     });
@@ -18178,23 +18290,86 @@ var DataSourcesBoard = (function (_React$Component) {
                     } else {
                         return row['VersioningPolicyName'] || '-';
                     }
-                } }, { name: 'EncryptionMode', label: m('encryption'), hideSmall: true, style: { width: '10%', textAlign: 'center' }, headerStyle: { width: '10%' }, renderCell: function renderCell(row) {
-                    return row['EncryptionMode'] === 'MASTER' ? pydio.MessageHash['440'] : pydio.MessageHash['441'];
-                } }];
+                }, sorter: { type: 'string' } }, {
+                name: 'EncryptionMode',
+                label: m('encryption'),
+                hideSmall: true,
+                style: { width: '10%', textAlign: 'center' },
+                headerStyle: { width: '10%' },
+                renderCell: function renderCell(row) {
+                    return row['EncryptionMode'] === 'MASTER' ? _react2['default'].createElement('span', { className: "mdi mdi-check" }) : '-';
+                },
+                sorter: { type: 'number', value: function value(row) {
+                        return row['EncryptionMode'] === 'MASTER' ? 1 : 0;
+                    } } }];
             var title = currentNode.getLabel();
             var icon = currentNode.getMetadata().get('icon_class');
             var buttons = [];
             if (accessByName('CreateDatasource')) {
                 buttons.push(_react2['default'].createElement(_materialUi.FlatButton, _extends({ primary: true, label: pydio.MessageHash['ajxp_admin.ws.4'], onTouchTap: this.createDataSource.bind(this) }, adminStyles.props.header.flatButton)));
             }
-            if (!versioningReadonly && accessByName('CreateVersioning')) {
+            var versioningEditable = !versioningReadonly && accessByName('CreateVersioning');
+            if (versioningEditable) {
                 buttons.push(_react2['default'].createElement(_materialUi.FlatButton, _extends({ primary: true, label: pydio.MessageHash['ajxp_admin.ws.4b'], onTouchTap: function () {
-                        _this4.openVersionPolicy();
+                        _this6.openVersionPolicy();
                     } }, adminStyles.props.header.flatButton)));
             }
-            var policiesColumns = [{ name: 'Name', label: m('versioning.name'), style: { width: 180, fontSize: 15 }, headerStyle: { width: 180 } }, { name: 'Description', label: m('versioning.description') }, { name: 'KeepPeriods', hideSmall: true, label: m('versioning.periods'), renderCell: function renderCell(row) {
+            var policiesColumns = [{ name: 'Name', label: m('versioning.name'), style: { width: 180, fontSize: 15 }, headerStyle: { width: 180 }, sorter: { type: 'string', 'default': true } }, { name: 'Description', label: m('versioning.description'), sorter: { type: 'string' } }, { name: 'KeepPeriods', hideSmall: true, label: m('versioning.periods'), renderCell: function renderCell(row) {
                     return _react2['default'].createElement(_editorVersionPolicyPeriods2['default'], { rendering: 'short', periods: row.KeepPeriods, pydio: pydio });
                 } }];
+
+            var dsActions = [];
+            if (accessByName('CreateDatasource')) {
+                dsActions.push({
+                    iconClassName: 'mdi mdi-pencil',
+                    tooltip: 'Edit datasource',
+                    onTouchTap: function onTouchTap(row) {
+                        _this6.openDataSource([row]);
+                    }
+                });
+            }
+            dsActions.push({
+                iconClassName: 'mdi mdi-sync',
+                tooltip: m('editor.legend.resync.button'),
+                onTouchTap: function onTouchTap(row) {
+                    return _this6.resyncDataSource(pydio, m, row);
+                }
+            });
+            dsActions.push({
+                iconClassName: 'mdi mdi-folder-plus',
+                tooltip: 'Create workspace here',
+                onTouchTap: function onTouchTap(row) {
+                    return _this6.createWorkspaceFromDatasource(pydio, m, row);
+                }
+            });
+            if (accessByName('CreateDatasource')) {
+                dsActions.push({
+                    iconClassName: 'mdi mdi-delete',
+                    tooltip: m('editor.legend.delete.button'),
+                    onTouchTap: function onTouchTap(row) {
+                        return _this6.deleteDataSource(pydio, m, row);
+                    }
+                });
+            }
+
+            var vsActions = [];
+            vsActions.push({
+                iconClassName: versioningEditable ? 'mdi mdi-pencil' : 'mdi mdi-eye',
+                tooltip: versioningEditable ? 'Edit policy' : 'Display policy',
+                onTouchTap: function onTouchTap(row) {
+                    _this6.openVersionPolicy([row]);
+                }
+            });
+            if (versioningEditable) {
+                vsActions.push({
+                    iconClassName: 'mdi mdi-delete',
+                    tooltip: 'Delete policy',
+                    destructive: true,
+                    onTouchTap: function onTouchTap(row) {
+                        return _this6.deleteVersionPolicy(row);
+                    }
+                });
+            }
 
             return _react2['default'].createElement(
                 'div',
@@ -18219,6 +18394,7 @@ var DataSourcesBoard = (function (_React$Component) {
                             _react2['default'].createElement(MaterialTable, {
                                 data: dataSources,
                                 columns: dsColumns,
+                                actions: dsActions,
                                 onSelectRows: this.openDataSource.bind(this),
                                 deselectOnClickAway: true,
                                 showCheckboxes: false,
@@ -18233,6 +18409,7 @@ var DataSourcesBoard = (function (_React$Component) {
                             _react2['default'].createElement(MaterialTable, {
                                 data: versioningPolicies,
                                 columns: policiesColumns,
+                                actions: vsActions,
                                 onSelectRows: this.openVersionPolicy.bind(this),
                                 deselectOnClickAway: true,
                                 showCheckboxes: false,
@@ -18266,7 +18443,7 @@ exports['default'] = DataSourcesBoard = (0, _materialUiStyles.muiThemeable)()(Da
 exports['default'] = DataSourcesBoard;
 module.exports = exports['default'];
 
-},{"../editor/DataSourceEditor":19,"../editor/VersionPolicyEditor":23,"../editor/VersionPolicyPeriods":24,"../model/DataSource":30,"./EncryptionKeys":13,"material-ui":"material-ui","material-ui/styles":"material-ui/styles","pydio":"pydio","pydio/http/rest-api":"pydio/http/rest-api","pydio/model/data-model":"pydio/model/data-model","pydio/model/node":"pydio/model/node","pydio/util/lang":"pydio/util/lang","react":"react","uuid":3}],13:[function(require,module,exports){
+},{"../editor/DataSourceEditor":19,"../editor/VersionPolicyEditor":23,"../editor/VersionPolicyPeriods":24,"../model/DataSource":30,"../model/Ws":33,"./EncryptionKeys":13,"material-ui":"material-ui","material-ui/styles":"material-ui/styles","pydio":"pydio","pydio/http/api":"pydio/http/api","pydio/http/resources-manager":"pydio/http/resources-manager","pydio/http/rest-api":"pydio/http/rest-api","pydio/model/data-model":"pydio/model/data-model","pydio/model/node":"pydio/model/node","pydio/util/lang":"pydio/util/lang","react":"react","uuid":3}],13:[function(require,module,exports){
 /*
  * Copyright 2007-2017 Charles du Jeu - Abstrium SAS <team (at) pyd.io>
  * This file is part of Pydio.
@@ -18320,6 +18497,10 @@ var _pydio2 = _interopRequireDefault(_pydio);
 var _materialUi = require('material-ui');
 
 var _pydioHttpRestApi = require('pydio/http/rest-api');
+
+var _modelWs = require("../model/Ws");
+
+var _modelWs2 = _interopRequireDefault(_modelWs);
 
 var _Pydio$requireLib = _pydio2['default'].requireLib('components');
 
@@ -18417,16 +18598,21 @@ var EncryptionKeys = (function (_React$Component) {
         value: function deleteKey(keyId) {
             var _this4 = this;
 
+            var pydio = this.props.pydio;
             var m = this.state.m;
 
-            if (confirm(m('key.delete.warning'))) {
-                var api = new _pydioHttpRestApi.ConfigServiceApi(_pydioHttpApi2['default'].getRestClient());
-                var req = new _pydioHttpRestApi.EncryptionAdminDeleteKeyRequest();
-                req.KeyID = keyId;
-                api.deleteEncryptionKey(req).then(function (result) {
-                    _this4.load();
-                });
-            }
+            pydio.UI.openConfirmDialog({
+                message: m('key.delete.warning'),
+                destructive: [keyId],
+                validCallback: function validCallback() {
+                    var api = new _pydioHttpRestApi.ConfigServiceApi(_pydioHttpApi2['default'].getRestClient());
+                    var req = new _pydioHttpRestApi.EncryptionAdminDeleteKeyRequest();
+                    req.KeyID = keyId;
+                    api.deleteEncryptionKey(req).then(function (result) {
+                        _this4.load();
+                    });
+                }
+            });
         }
     }, {
         key: 'importKey',
@@ -18482,32 +18668,17 @@ var EncryptionKeys = (function (_React$Component) {
             var accessByName = _props.accessByName;
             var adminStyles = _props.adminStyles;
 
-            var columns = [{ name: 'Label', label: m('key.label'), style: { width: '30%', fontSize: 15 }, headerStyle: { width: '30%' } }, { name: 'ID', label: m('key.id'), hideSmall: true }, { name: 'Owner', label: m('key.owner'), hideSmall: true }, { name: 'CreationDate', label: m('key.created'), hideSmall: true, renderCell: function renderCell(row) {
-                    return new Date(row.CreationDate * 1000).toUTCString();
-                } }, { name: 'Actions', label: '', style: { width: 170, textAlign: 'right', overflow: 'visible' }, headerStyle: { width: 170 }, renderCell: function renderCell(row) {
-                    if (!accessByName('CreateEncryption')) {
-                        return null;
-                    }
-                    return _react2['default'].createElement(
-                        'div',
-                        null,
-                        _react2['default'].createElement(_materialUi.IconButton, { tooltip: m('key.import'), tooltipPosition: "right", iconStyle: { color: '#9e9e9e' }, iconClassName: "mdi mdi-import", onTouchTap: function () {
-                                _this6.setState({ showDialog: true, showImportKey: row });
-                            }, onClick: function (e) {
-                                return e.stopPropagation();
-                            } }),
-                        _react2['default'].createElement(_materialUi.IconButton, { tooltip: m('key.export'), tooltipPosition: "right", iconStyle: { color: '#9e9e9e' }, iconClassName: "mdi mdi-export", onTouchTap: function () {
-                                _this6.setState({ showDialog: true, showExportKey: row.ID });
-                            }, onClick: function (e) {
-                                return e.stopPropagation();
-                            } }),
-                        _react2['default'].createElement(_materialUi.IconButton, { tooltip: m('key.delete'), tooltipPosition: "right", iconStyle: { color: '#9e9e9e' }, iconClassName: "mdi mdi-delete", onTouchTap: function () {
-                                _this6.deleteKey(row.ID);
-                            }, onClick: function (e) {
-                                return e.stopPropagation();
-                            } })
-                    );
-                } }];
+            var columns = [{ name: 'Label', label: m('key.label'), style: { width: '30%', fontSize: 15 }, headerStyle: { width: '30%' }, sorter: { type: 'string', 'default': true } }, { name: 'ID', label: m('key.id'), hideSmall: true, sorter: { type: 'string' } }, { name: 'Owner', label: m('key.owner'), hideSmall: true, sorter: { type: 'string' } }, { name: 'CreationDate', label: m('key.created'), hideSmall: true, useMoment: true, sorter: { type: 'number' } }];
+            var actions = [];
+            if (accessByName('CreateEncryption')) {
+                actions.push({ iconClassName: 'mdi mdi-import', tooltip: m('key.import'), onTouchTap: function onTouchTap(row) {
+                        _this6.setState({ showDialog: true, showImportKey: row });
+                    } }, { iconClassName: 'mdi mdi-export', tooltip: m('key.export'), onTouchTap: function onTouchTap(row) {
+                        _this6.setState({ showDialog: true, showExportKey: row.ID });
+                    } }, { iconClassName: 'mdi mdi-delete', tooltip: m('key.delete'), onTouchTap: function onTouchTap(row) {
+                        _this6.deleteKey(row.ID);
+                    } });
+            }
 
             var dialogContent = undefined,
                 dialogTitle = undefined,
@@ -18598,9 +18769,22 @@ var EncryptionKeys = (function (_React$Component) {
                     },
                     dialogContent
                 ),
+                _react2['default'].createElement(
+                    _materialUi.Paper,
+                    _extends({}, blockProps, { style: blockStyle }),
+                    _react2['default'].createElement(MaterialTable, {
+                        data: keys,
+                        columns: columns,
+                        actions: actions,
+                        onSelectRows: function () {},
+                        showCheckboxes: false,
+                        emptyStateString: m('key.emptyState'),
+                        masterStyles: tableMaster
+                    })
+                ),
                 accessByName('CreateEncryption') && _react2['default'].createElement(
                     'div',
-                    { style: { textAlign: 'right', paddingRight: 24 } },
+                    { style: { textAlign: 'right', paddingRight: 24, paddingBottom: 24 } },
                     _react2['default'].createElement(_materialUi.FlatButton, _extends({ primary: true, label: m('key.import'), onTouchTap: function () {
                             _this6.setState({ showImportKey: {}, showDialog: true });
                         } }, adminStyles.props.header.flatButton)),
@@ -18611,18 +18795,6 @@ var EncryptionKeys = (function (_React$Component) {
                                 _this6.setState({ showCreateKey: true, showDialog: true });
                             } }, adminStyles.props.header.flatButton))
                     )
-                ),
-                _react2['default'].createElement(
-                    _materialUi.Paper,
-                    _extends({}, blockProps, { style: blockStyle }),
-                    _react2['default'].createElement(MaterialTable, {
-                        data: keys,
-                        columns: columns,
-                        onSelectRows: function () {},
-                        showCheckboxes: false,
-                        emptyStateString: m('key.emptyState'),
-                        masterStyles: tableMaster
-                    })
                 )
             );
         }
@@ -18634,7 +18806,7 @@ var EncryptionKeys = (function (_React$Component) {
 exports['default'] = EncryptionKeys;
 module.exports = exports['default'];
 
-},{"material-ui":"material-ui","pydio":"pydio","pydio/http/api":"pydio/http/api","pydio/http/rest-api":"pydio/http/rest-api","react":"react"}],14:[function(require,module,exports){
+},{"../model/Ws":33,"material-ui":"material-ui","pydio":"pydio","pydio/http/api":"pydio/http/api","pydio/http/rest-api":"pydio/http/rest-api","react":"react"}],14:[function(require,module,exports){
 'use strict';
 
 Object.defineProperty(exports, '__esModule', {
@@ -18734,11 +18906,18 @@ var MetadataBoard = (function (_React$Component) {
         value: function deleteNs(row) {
             var _this2 = this;
 
-            if (confirm(this.state.m('delete.confirm'))) {
-                _modelMetadata2['default'].deleteNS(row).then(function () {
-                    _this2.load();
-                });
-            }
+            var pydio = this.props.pydio;
+            var m = this.state.m;
+
+            pydio.UI.openConfirmDialog({
+                message: m('delete.confirm'),
+                destructive: [row.Namespace],
+                validCallback: function validCallback() {
+                    _modelMetadata2['default'].deleteNS(row).then(function () {
+                        _this2.load();
+                    });
+                }
+            });
         }
     }, {
         key: 'open',
@@ -18789,37 +18968,37 @@ var MetadataBoard = (function (_React$Component) {
 
             var columns = [{ name: 'Order', label: m('order'), style: { width: 30 }, headerStyle: { width: 30 }, hideSmall: true, renderCell: function renderCell(row) {
                     return row.Order || '0';
-                } }, { name: 'Namespace', label: m('namespace'), style: { fontSize: 15 } }, { name: 'Label', label: m('label'), style: { width: '25%' }, headerStyle: { width: '25%' } }, { name: 'Indexable', label: m('indexable'), style: { width: '25%' }, headerStyle: { width: '25%' }, hideSmall: true, renderCell: function renderCell(row) {
+                }, sorter: { type: 'number' } }, { name: 'Namespace', label: m('namespace'), style: { fontSize: 15 }, sorter: { type: 'string' } }, { name: 'Label', label: m('label'), style: { width: '25%' }, headerStyle: { width: '25%' }, sorter: { type: 'string' } }, { name: 'Indexable', label: m('indexable'), style: { width: '10%' }, headerStyle: { width: '10%' }, hideSmall: true, renderCell: function renderCell(row) {
                     return row.Indexable ? 'Yes' : 'No';
-                } }, { name: 'JsonDefinition', label: m('definition'), hideSmall: true, renderCell: function renderCell(row) {
+                }, sorter: { type: 'number', value: function value(row) {
+                        return row.Indexable ? 1 : 0;
+                    } } }, { name: 'JsonDefinition', label: m('definition'), hideSmall: true, renderCell: function renderCell(row) {
                     var def = row.JsonDefinition;
                     if (!def) {
                         return '';
                     }
                     var data = JSON.parse(def);
                     return _modelMetadata2['default'].MetaTypes[data.type] || data.type;
-                } }, { name: 'actions', label: '', style: { width: 100 }, headerStyle: { width: 100 }, renderCell: function renderCell(row) {
-                    if (!accessByName('Create')) {
-                        return null;
-                    }
-                    return _react2['default'].createElement(_materialUi.IconButton, {
-                        iconClassName: 'mdi mdi-delete',
-                        onTouchTap: function () {
-                            _this3.deleteNs(row);
-                        },
-                        onClick: function (e) {
-                            e.stopPropagation();
-                        },
-                        iconStyle: { color: 'rgba(0,0,0,0.3)', fontSize: 20 }
-                    });
-                } }];
+                }, sorter: { type: 'string' } }];
             var title = currentNode.getLabel();
             var icon = currentNode.getMetadata().get('icon_class');
             var buttons = [];
+            var actions = [];
             if (accessByName('Create')) {
                 buttons.push(_react2['default'].createElement(_materialUi.FlatButton, _extends({ primary: true, label: m('namespace.add'), onTouchTap: function () {
                         _this3.create();
                     } }, adminStyle.props.header.flatButton)));
+                actions.push({
+                    iconClassName: 'mdi mdi-pencil',
+                    onTouchTap: function onTouchTap(row) {
+                        _this3.open([row]);
+                    }
+                }, {
+                    iconClassName: 'mdi mdi-delete',
+                    onTouchTap: function onTouchTap(row) {
+                        _this3.deleteNs(row);
+                    }
+                });
             }
 
             return _react2['default'].createElement(
@@ -18859,6 +19038,7 @@ var MetadataBoard = (function (_React$Component) {
                             _react2['default'].createElement(MaterialTable, {
                                 data: namespaces,
                                 columns: columns,
+                                actions: actions,
                                 onSelectRows: this.open.bind(this),
                                 deselectOnClickAway: true,
                                 showCheckboxes: false,
@@ -18949,6 +19129,10 @@ var _Pydio$requireLib = _pydio2['default'].requireLib('hoc');
 
 var ModernTextField = _Pydio$requireLib.ModernTextField;
 
+var _Pydio$requireLib2 = _pydio2['default'].requireLib('components');
+
+var MaterialTable = _Pydio$requireLib2.MaterialTable;
+
 var VirtualNodes = (function (_React$Component) {
     _inherits(VirtualNodes, _React$Component);
 
@@ -19026,20 +19210,80 @@ var VirtualNodes = (function (_React$Component) {
             var dataSources = _state.dataSources;
             var nodesLoaded = _state.nodesLoaded;
             var dataSourcesLoaded = _state.dataSourcesLoaded;
+            var selectedNode = _state.selectedNode;
 
             var m = function m(id) {
                 return pydio.MessageHash['ajxp_admin.virtual.' + id] || id;
             };
             var adminStyles = AdminComponents.AdminStyles(muiTheme.palette);
 
-            var vNodes = [];
-            nodes.map(function (node) {
-                vNodes.push(_react2['default'].createElement(_virtualNodeCard2['default'], { dataSources: dataSources, node: node, reloadList: _this4.reload.bind(_this4), readonly: readonly || !accessByName('Create'), adminStyles: adminStyles }));
+            var vNodes = nodes.map(function (node) {
+                if (node.getName() === selectedNode) {
+                    return {
+                        node: node,
+                        expandedRow: _react2['default'].createElement(_virtualNodeCard2['default'], {
+                            pydio: pydio,
+                            dataSources: dataSources,
+                            node: node,
+                            reloadList: _this4.reload.bind(_this4),
+                            readonly: readonly || !accessByName('Create'),
+                            adminStyles: adminStyles,
+                            onSave: _this4.reload.bind(_this4)
+                        })
+                    };
+                } else {
+                    return { node: node };
+                }
             });
 
             var headerActions = [];
             if (!readonly && accessByName('Create')) {
                 headerActions.push(_react2['default'].createElement(_materialUi.FlatButton, _extends({ primary: true, label: m('create'), onTouchTap: this.handleTouchTap.bind(this) }, adminStyles.props.header.flatButton)));
+            }
+
+            var columns = [{ name: 'id', label: m('col.id'), style: { width: '25%', fontSize: 15 }, headerStyle: { width: '25%' }, renderCell: function renderCell(row) {
+                    return row.node.getName();
+                }, sorter: { type: 'string' } }, { name: 'code', label: m('col.code'), renderCell: function renderCell(row) {
+                    return _react2['default'].createElement(
+                        'pre',
+                        null,
+                        row.node.getValue().split('\n').pop()
+                    );
+                } }];
+            var actions = [];
+            if (readonly) {
+                actions.push({
+                    iconClassName: 'mdi mdi-eye',
+                    tooltip: m('code.display'),
+                    onTouchTap: function onTouchTap(row) {
+                        return _this4.setState({ selectedNode: selectedNode === row.node.getName() ? null : row.node.getName() });
+                    }
+                });
+            } else {
+                actions.push({
+                    iconClassName: 'mdi mdi-pencil',
+                    tooltip: m('code.edit'),
+                    onTouchTap: function onTouchTap(row) {
+                        return _this4.setState({ selectedNode: selectedNode === row.node.getName() ? null : row.node.getName() });
+                    }
+                });
+                actions.push({
+                    iconClassName: 'mdi mdi-delete',
+                    tooltip: m('delete'),
+                    onTouchTap: function onTouchTap(row) {
+                        pydio.UI.openConfirmDialog({
+                            message: m('delete.confirm'),
+                            destructive: [row.node.getName()],
+                            validCallback: function validCallback() {
+                                row.node.remove(function () {
+                                    _this4.reload();
+                                });
+                            } });
+                    },
+                    disable: function disable(row) {
+                        return row.node.getName() === 'cells' || row.node.getName() === 'my-files';
+                    }
+                });
             }
 
             return _react2['default'].createElement(
@@ -19066,7 +19310,7 @@ var VirtualNodes = (function (_React$Component) {
                         { style: { margin: '0 10px' } },
                         _react2['default'].createElement(ModernTextField, { ref: 'newNode', floatingLabelText: m('label'), value: this.state.newName, onChange: function (e, v) {
                                 _this4.setState({ newName: v });
-                            }, hintText: "Provide a label for this node" })
+                            }, hintText: m('label.new') })
                     ),
                     _react2['default'].createElement(_materialUi.Divider, null),
                     _react2['default'].createElement(
@@ -19082,19 +19326,29 @@ var VirtualNodes = (function (_React$Component) {
                     _react2['default'].createElement(
                         'div',
                         { style: { padding: 20, paddingBottom: 0 } },
-                        m('legend.1'),
-                        _react2['default'].createElement('br', null),
-                        !readonly && accessByName('Create') && _react2['default'].createElement(
-                            'span',
-                            null,
-                            m('legend.2')
-                        )
+                        m('legend.1')
                     ),
-                    nodesLoaded && dataSourcesLoaded && vNodes,
+                    nodesLoaded && dataSourcesLoaded && _react2['default'].createElement(
+                        _materialUi.Paper,
+                        _extends({}, adminStyles.body.block.props, { style: adminStyles.body.block.container }),
+                        _react2['default'].createElement(MaterialTable, {
+                            columns: columns,
+                            data: vNodes,
+                            actions: actions,
+                            deselectOnClickAway: true,
+                            showCheckboxes: false,
+                            masterStyles: adminStyles.body.tableMaster
+                        })
+                    ),
                     (!nodesLoaded || !dataSourcesLoaded) && _react2['default'].createElement(
                         'div',
                         { style: { margin: 16, textAlign: 'center', padding: 20 } },
                         pydio.MessageHash['ajxp_admin.home.6']
+                    ),
+                    !readonly && accessByName('Create') && _react2['default'].createElement(
+                        'div',
+                        { style: { padding: '0 24px', opacity: '.5' } },
+                        m('legend.2')
                     )
                 )
             );
@@ -19212,8 +19466,25 @@ exports['default'] = _react2['default'].createClass({
 
     openTableRows: function openTableRows(rows) {
         if (rows.length) {
-            this.props.openSelection(rows[0].payload);
+            this.props.openSelection(rows[0].workspace);
         }
+    },
+
+    deleteAction: function deleteAction(workspace) {
+        var _this2 = this;
+
+        var pydio = this.props.pydio;
+
+        pydio.UI.openConfirmDialog({
+            message: pydio.MessageHash['settings.35'],
+            destructive: [workspace.Label],
+            validCallback: function validCallback() {
+                var ws = new _modelWs2['default'](workspace);
+                ws.remove().then(function () {
+                    _this2.reload();
+                });
+            }
+        });
     },
 
     computeTableData: function computeTableData() {
@@ -19247,7 +19518,7 @@ exports['default'] = _react2['default'].createClass({
                 }
             }
             data.push({
-                payload: workspace,
+                workspace: workspace,
                 label: workspace.Label,
                 description: workspace.Description,
                 slug: workspace.Slug,
@@ -19260,11 +19531,14 @@ exports['default'] = _react2['default'].createClass({
     },
 
     render: function render() {
+        var _this3 = this;
+
         var _props = this.props;
         var pydio = _props.pydio;
         var advanced = _props.advanced;
         var editable = _props.editable;
         var tableStyles = _props.tableStyles;
+        var openSelection = _props.openSelection;
 
         var m = function m(id) {
             return pydio.MessageHash['ajxp_admin.' + id];
@@ -19273,23 +19547,61 @@ exports['default'] = _react2['default'].createClass({
             return pydio.MessageHash['settings.' + id];
         };
 
-        var columns = [{ name: 'label', label: s('8'), style: { width: '20%', fontSize: 15 }, headerStyle: { width: '20%' } }, { name: 'description', label: s('103'), hideSmall: true, style: { width: '25%' }, headerStyle: { width: '25%' } }, { name: 'summary', label: m('ws.board.summary'), hideSmall: true, style: { width: '25%' }, headerStyle: { width: '25%' } }];
+        var columns = [{ name: 'label', label: s('8'), style: { width: '20%', fontSize: 15 }, headerStyle: { width: '20%' }, sorter: { type: 'string', 'default': 'true' } }, { name: 'description', label: s('103'), hideSmall: true, style: { width: '25%' }, headerStyle: { width: '25%' }, sorter: { type: 'string' } }, { name: 'summary', label: m('ws.board.summary'), hideSmall: true, style: { width: '25%' }, headerStyle: { width: '25%' }, sorter: { type: 'string' } }];
         if (advanced) {
             columns.push({
-                name: 'syncable', label: m('ws.board.syncable'), style: { width: '10%', textAlign: 'center' }, headerStyle: { width: '10%', textAlign: 'center' }, renderCell: function renderCell(row) {
+                name: 'syncable', label: m('ws.board.syncable'), style: { width: '10%', textAlign: 'center' }, headerStyle: { width: '10%', textAlign: 'center' }, sorter: { type: 'number', sortValue: function sortValue(row) {
+                        return row.syncable ? 1 : 0;
+                    } }, renderCell: function renderCell(row) {
                     return _react2['default'].createElement('span', { className: "mdi mdi-check", style: { fontSize: 18, opacity: row.syncable ? 1 : 0 } });
                 } });
         }
 
-        columns.push({ name: 'slug', label: m('ws.5'), style: { width: '20%' }, headerStyle: { width: '20%' } });
+        columns.push({ name: 'slug', label: m('ws.5'), style: { width: '20%' }, headerStyle: { width: '20%' }, sorter: { type: 'string' } });
 
         var loading = this.state.loading;
 
         var data = this.computeTableData();
+        var actions = [];
+        if (editable) {
+            actions.push({
+                iconClassName: "mdi mdi-pencil",
+                tooltip: 'Edit Workspace',
+                onTouchTap: function onTouchTap(row) {
+                    openSelection(row.workspace);
+                },
+                disable: function disable(row) {
+                    return !row.workspace.PoliciesContextEditable;
+                }
+            });
+        }
+        var repos = pydio.user.getRepositoriesList();
+        actions.push({
+            iconClassName: 'mdi mdi-open-in-new',
+            tooltip: 'Open this workspace...',
+            onTouchTap: function onTouchTap(row) {
+                pydio.triggerRepositoryChange(row.workspace.UUID);
+            },
+            disable: function disable(row) {
+                return !repos.has(row.workspace.UUID);
+            }
+        });
+        if (editable) {
+            actions.push({
+                iconClassName: "mdi mdi-delete",
+                onTouchTap: function onTouchTap(row) {
+                    _this3.deleteAction(row.workspace);
+                },
+                disable: function disable(row) {
+                    return !row.workspace.PoliciesContextEditable;
+                }
+            });
+        }
 
         return _react2['default'].createElement(MaterialTable, {
             data: data,
             columns: columns,
+            actions: actions,
             onSelectRows: editable ? this.openTableRows.bind(this) : null,
             deselectOnClickAway: true,
             showCheckboxes: false,
@@ -19915,6 +20227,8 @@ var _modelDataSource2 = _interopRequireDefault(_modelDataSource);
 
 var _materialUi = require('material-ui');
 
+var _materialUiStyles = require('material-ui/styles');
+
 var _DataSourceLocalSelector = require('./DataSourceLocalSelector');
 
 var _DataSourceLocalSelector2 = _interopRequireDefault(_DataSourceLocalSelector);
@@ -19946,7 +20260,7 @@ var DataSourceEditor = (function (_React$Component) {
         _classCallCheck(this, DataSourceEditor);
 
         _get(Object.getPrototypeOf(DataSourceEditor.prototype), 'constructor', this).call(this, props);
-        var observable = new _modelDataSource2['default'](props.dataSource);
+        var observable = new _modelDataSource2['default'](props.dataSource, props.existingNames);
         this.state = {
             dirty: false,
             create: props.create,
@@ -20027,23 +20341,30 @@ var DataSourceEditor = (function (_React$Component) {
         value: function deleteSource() {
             var _this4 = this;
 
-            var m = this.state.m;
+            var _state = this.state;
+            var m = _state.m;
+            var observable = _state.observable;
+            var pydio = this.props.pydio;
 
-            if (confirm(m('delete.warning'))) {
-                this.state.observable.deleteSource().then(function () {
-                    _this4.props.closeEditor();
-                    _this4.props.reloadList();
-                });
-            }
+            pydio.UI.openConfirmDialog({
+                message: m('delete.warning'),
+                validCallback: function validCallback() {
+                    observable.deleteSource().then(function () {
+                        _this4.props.closeEditor();
+                        _this4.props.reloadList();
+                    });
+                },
+                destructive: [observable.getModel().Name]
+            });
         }
     }, {
         key: 'saveSource',
         value: function saveSource() {
             var _this5 = this;
 
-            var _state = this.state;
-            var observable = _state.observable;
-            var create = _state.create;
+            var _state2 = this.state;
+            var observable = _state2.observable;
+            var create = _state2.create;
 
             this.state.observable.saveSource().then(function () {
                 var newDsName = null;
@@ -20074,9 +20395,9 @@ var DataSourceEditor = (function (_React$Component) {
     }, {
         key: 'confirmEncryption',
         value: function confirmEncryption(value) {
-            var _state2 = this.state;
-            var model = _state2.model;
-            var encryptionKeys = _state2.encryptionKeys;
+            var _state3 = this.state;
+            var model = _state3.model;
+            var encryptionKeys = _state3.encryptionKeys;
 
             model.EncryptionMode = value ? "MASTER" : "CLEAR";
             if (value && !model.EncryptionKey && encryptionKeys && encryptionKeys.length) {
@@ -20104,16 +20425,16 @@ var DataSourceEditor = (function (_React$Component) {
             var storageTypes = _props.storageTypes;
             var pydio = _props.pydio;
             var readonly = _props.readonly;
-            var _state3 = this.state;
-            var model = _state3.model;
-            var create = _state3.create;
-            var observable = _state3.observable;
-            var encryptionKeys = _state3.encryptionKeys;
-            var versioningPolicies = _state3.versioningPolicies;
-            var showDialog = _state3.showDialog;
-            var dialogTargetValue = _state3.dialogTargetValue;
-            var s3Custom = _state3.s3Custom;
-            var m = _state3.m;
+            var _state4 = this.state;
+            var model = _state4.model;
+            var create = _state4.create;
+            var observable = _state4.observable;
+            var encryptionKeys = _state4.encryptionKeys;
+            var versioningPolicies = _state4.versioningPolicies;
+            var showDialog = _state4.showDialog;
+            var dialogTargetValue = _state4.dialogTargetValue;
+            var s3Custom = _state4.s3Custom;
+            var m = _state4.m;
 
             var titleActionBarButtons = [];
             if (!readonly) {
@@ -20219,6 +20540,7 @@ var DataSourceEditor = (function (_React$Component) {
 
             var title = model.Name ? m('title').replace('%s', model.Name) : m('new');
             var storageConfig = model.StorageConfiguration;
+            var adminStyles = AdminComponents.AdminStyles(this.props.muiTheme.palette);
             var styles = {
                 title: {
                     fontSize: 20,
@@ -20226,7 +20548,7 @@ var DataSourceEditor = (function (_React$Component) {
                     marginBottom: 10
                 },
                 legend: {},
-                section: { padding: '0 20px 20px', margin: 10, backgroundColor: 'white' },
+                section: _extends({ padding: '0 20px 20px', margin: 10, backgroundColor: 'white' }, adminStyles.body.block.container),
                 storageSection: { padding: 20, marginTop: -1 },
                 toggleDiv: { height: 50, display: 'flex', alignItems: 'flex-end' }
             };
@@ -20304,7 +20626,7 @@ var DataSourceEditor = (function (_React$Component) {
                 ),
                 _react2['default'].createElement(
                     _materialUi.Paper,
-                    { zDepth: 1, style: styles.section },
+                    { zDepth: 0, style: styles.section },
                     _react2['default'].createElement(
                         'div',
                         { style: styles.title },
@@ -20312,7 +20634,7 @@ var DataSourceEditor = (function (_React$Component) {
                     ),
                     _react2['default'].createElement(ModernTextField, { fullWidth: true, hintText: m('options.id') + ' *', disabled: !create, value: model.Name, onChange: function (e, v) {
                             model.Name = v;
-                        } }),
+                        }, errorText: observable.getNameError(m) }),
                     !create && _react2['default'].createElement(
                         'div',
                         { style: styles.toggleDiv },
@@ -20323,7 +20645,7 @@ var DataSourceEditor = (function (_React$Component) {
                 ),
                 _react2['default'].createElement(
                     _materialUi.Paper,
-                    { zDepth: 1, style: _extends({}, styles.section, { padding: 0 }) },
+                    { zDepth: 0, style: _extends({}, styles.section, { padding: 0 }) },
                     _react2['default'].createElement(_DsStorageSelector2['default'], { disabled: !create, value: model.StorageType, onChange: function (e, i, v) {
                             model.StorageType = v;
                         }, values: storageData }),
@@ -20458,11 +20780,26 @@ var DataSourceEditor = (function (_React$Component) {
                 ),
                 _react2['default'].createElement(
                     _materialUi.Paper,
-                    { zDepth: 1, style: styles.section },
+                    { zDepth: 0, style: styles.section },
                     _react2['default'].createElement(
                         'div',
                         { style: styles.title },
                         m('datamanagement')
+                    ),
+                    _react2['default'].createElement(
+                        'div',
+                        { style: _extends({}, styles.legend, { paddingTop: 20 }) },
+                        m('storage.legend.versioning')
+                    ),
+                    _react2['default'].createElement(
+                        ModernSelectField,
+                        { fullWidth: true, value: model.VersioningPolicyName, onChange: function (e, i, v) {
+                                model.VersioningPolicyName = v;
+                            } },
+                        _react2['default'].createElement(_materialUi.MenuItem, { value: undefined, primaryText: m('versioning.disabled') }),
+                        versioningPolicies.map(function (key) {
+                            return _react2['default'].createElement(_materialUi.MenuItem, { value: key.Uuid, primaryText: key.Name });
+                        })
                     ),
                     model.StorageType !== 'LOCAL' && _react2['default'].createElement(
                         'div',
@@ -20513,21 +20850,6 @@ var DataSourceEditor = (function (_React$Component) {
                     _react2['default'].createElement(
                         'div',
                         { style: _extends({}, styles.legend, { paddingTop: 20 }) },
-                        m('storage.legend.versioning')
-                    ),
-                    _react2['default'].createElement(
-                        ModernSelectField,
-                        { fullWidth: true, value: model.VersioningPolicyName, onChange: function (e, i, v) {
-                                model.VersioningPolicyName = v;
-                            } },
-                        _react2['default'].createElement(_materialUi.MenuItem, { value: undefined, primaryText: m('versioning.disabled') }),
-                        versioningPolicies.map(function (key) {
-                            return _react2['default'].createElement(_materialUi.MenuItem, { value: key.Uuid, primaryText: key.Name });
-                        })
-                    ),
-                    _react2['default'].createElement(
-                        'div',
-                        { style: _extends({}, styles.legend, { paddingTop: 20 }) },
                         m('storage.legend.encryption')
                     ),
                     _react2['default'].createElement(
@@ -20560,10 +20882,12 @@ DataSourceEditor.contextTypes = {
     getMessage: _react2['default'].PropTypes.func
 };
 
+exports['default'] = DataSourceEditor = (0, _materialUiStyles.muiThemeable)()(DataSourceEditor);
+
 exports['default'] = DataSourceEditor;
 module.exports = exports['default'];
 
-},{"../model/DataSource":30,"./DataSourceBucketSelector":18,"./DataSourceLocalSelector":20,"./DsStorageSelector":21,"material-ui":"material-ui","pydio":"pydio","react":"react"}],20:[function(require,module,exports){
+},{"../model/DataSource":30,"./DataSourceBucketSelector":18,"./DataSourceLocalSelector":20,"./DsStorageSelector":21,"material-ui":"material-ui","material-ui/styles":"material-ui/styles","pydio":"pydio","react":"react"}],20:[function(require,module,exports){
 /*
  * Copyright 2007-2019 Charles du Jeu - Abstrium SAS <team (at) pyd.io>
  * This file is part of Pydio.
@@ -20714,7 +21038,7 @@ var AutocompleteTree = (function (_React$Component) {
                 basePath = searchText.substr(0, last);
             }
             if (this.lastSearch !== null && this.lastSearch === basePath) {
-                return;
+                return Promise.resolve();
             }
             this.lastSearch = basePath;
             var api = new _pydioHttpRestApi.ConfigServiceApi(_pydioHttpApi2['default'].getRestClient());
@@ -20722,7 +21046,7 @@ var AutocompleteTree = (function (_React$Component) {
             listRequest.PeerAddress = peerAddress;
             listRequest.Path = basePath;
             this.setState({ loading: true });
-            api.listPeerFolders(peerAddress, listRequest).then(function (nodesColl) {
+            return api.listPeerFolders(peerAddress, listRequest).then(function (nodesColl) {
                 var children = nodesColl.Children || [];
                 children = children.map(function (c) {
                     if (c.Path[0] !== '/') {
@@ -20733,6 +21057,30 @@ var AutocompleteTree = (function (_React$Component) {
                 _this.setState({ nodes: children, loading: false });
             })['catch'](function () {
                 _this.setState({ loading: false });
+            });
+        }
+    }, {
+        key: 'createFolder',
+        value: function createFolder(newName) {
+            var _this2 = this;
+
+            var _props = this.props;
+            var peerAddress = _props.peerAddress;
+            var pydio = _props.pydio;
+            var value = this.state.value;
+
+            var api = new _pydioHttpRestApi.ConfigServiceApi(_pydioHttpApi2['default'].getRestClient());
+            var createRequest = new _pydioHttpRestApi.RestCreatePeerFolderRequest();
+            createRequest.PeerAddress = peerAddress;
+            createRequest.Path = value + '/' + newName;
+            api.createPeerFolder(peerAddress, createRequest).then(function (result) {
+                _this2.lastSearch = null; // Force reload
+                _this2.loadValues(value).then(function () {
+                    // Select path after reload
+                    _this2.handleNewRequest(createRequest.Path);
+                });
+            })['catch'](function (e) {
+                pydio.UI.displayMessage('ERROR', e.message);
             });
         }
     }, {
@@ -20794,21 +21142,47 @@ var AutocompleteTree = (function (_React$Component) {
             };
         }
     }, {
+        key: 'showCreateDialog',
+        value: function showCreateDialog() {
+            var _this3 = this;
+
+            var pydio = this.props.pydio;
+            var value = this.state.value;
+
+            var m = function m(id) {
+                return pydio.MessageHash['ajxp_admin.ds.editor.selector.' + id] || id;
+            };
+            pydio.UI.openComponentInModal('PydioReactUI', 'PromptDialog', {
+                dialogTitle: m('mkdir'),
+                legendId: m('mkdir.legend').replace('%s', value),
+                fieldLabelId: m('mkdir.field'),
+                submitValue: function submitValue(v) {
+                    if (!v) {
+                        return;
+                    }
+                    _this3.createFolder(v);
+                }
+            });
+        }
+    }, {
         key: 'render',
         value: function render() {
-            var _this2 = this;
+            var _this4 = this;
 
             var _state = this.state;
             var nodes = _state.nodes;
             var loading = _state.loading;
             var exist = _state.exist;
             var value = _state.value;
-            var fieldLabel = this.props.fieldLabel;
+            var searchText = _state.searchText;
+            var _props2 = this.props;
+            var fieldLabel = _props2.fieldLabel;
+            var pydio = _props2.pydio;
 
             var dataSource = [];
             if (nodes) {
                 nodes.forEach(function (node) {
-                    dataSource.push(_this2.renderNode(node));
+                    dataSource.push(_this4.renderNode(node));
                 });
             }
 
@@ -20825,6 +21199,18 @@ var AutocompleteTree = (function (_React$Component) {
                         left: 0,
                         top: 0,
                         status: loading ? "loading" : "hide"
+                    })
+                ),
+                value && exist && !loading && (!searchText || searchText === value) && _react2['default'].createElement(
+                    'div',
+                    { style: { position: 'absolute', right: 0 } },
+                    _react2['default'].createElement(_materialUi.IconButton, {
+                        iconClassName: "mdi mdi-folder-plus",
+                        iconStyle: { color: '#9e9e9e' },
+                        onTouchTap: function () {
+                            return _this4.showCreateDialog();
+                        },
+                        tooltip: pydio.MessageHash['ajxp_admin.ds.editor.selector.mkdir']
                     })
                 ),
                 _react2['default'].createElement(_materialUi.AutoComplete, _extends({
@@ -20877,7 +21263,7 @@ var DataSourceLocalSelector = (function (_React$Component2) {
     }, {
         key: 'componentDidMount',
         value: function componentDidMount() {
-            var _this3 = this;
+            var _this5 = this;
 
             var model = this.props.model;
 
@@ -20887,17 +21273,17 @@ var DataSourceLocalSelector = (function (_React$Component2) {
                 if (aa === 1 && !model.PeerAddress) {
                     model.PeerAddress = aa[0];
                 }
-                _this3.setState({ peerAddresses: aa });
+                _this5.setState({ peerAddresses: aa });
                 if (model.PeerAddress && aa.indexOf(model.PeerAddress) === -1) {
                     var rep = aa.filter(function (a) {
-                        return _this3.compareAddresses(a, model.PeerAddress);
+                        return _this5.compareAddresses(a, model.PeerAddress);
                     });
                     if (rep.length) {
                         // If model address is contained in one of the res, replace it
                         model.PeerAddress = rep[0];
                     } else {
                         // Otherwise show it as invalid
-                        _this3.setState({ invalidAddress: model.PeerAddress });
+                        _this5.setState({ invalidAddress: model.PeerAddress });
                     }
                 }
             });
@@ -20950,9 +21336,11 @@ var DataSourceLocalSelector = (function (_React$Component2) {
     }, {
         key: 'render',
         value: function render() {
-            var _this4 = this;
+            var _this6 = this;
 
-            var model = this.props.model;
+            var _props3 = this.props;
+            var model = _props3.model;
+            var pydio = _props3.pydio;
             var _state2 = this.state;
             var peerAddresses = _state2.peerAddresses;
             var invalidAddress = _state2.invalidAddress;
@@ -20976,7 +21364,7 @@ var DataSourceLocalSelector = (function (_React$Component2) {
                             value: model.PeerAddress || '',
                             hintText: m('selector.peer') + ' *',
                             onChange: function (e, i, v) {
-                                return _this4.onPeerChange(v);
+                                return _this6.onPeerChange(v);
                             },
                             fullWidth: true
                         },
@@ -20989,6 +21377,7 @@ var DataSourceLocalSelector = (function (_React$Component2) {
                     'div',
                     null,
                     model.PeerAddress && _react2['default'].createElement(AutocompleteTree, {
+                        pydio: pydio,
                         value: model.StorageConfiguration.folder,
                         peerAddress: model.PeerAddress,
                         onChange: this.onPathChange.bind(this),
@@ -21746,16 +22135,23 @@ var VersionPolicyEditor = (function (_React$Component) {
         value: function deleteSource() {
             var _this2 = this;
 
-            var m = this.state.m;
+            var _state = this.state;
+            var m = _state.m;
+            var policy = _state.policy;
+            var pydio = this.props.pydio;
 
-            if (confirm(m('delete.confirm'))) {
-                _pydioHttpResourcesManager2['default'].loadClass('EnterpriseSDK').then(function (sdk) {
-                    var api = new sdk.EnterpriseConfigServiceApi(_pydioHttpApi2['default'].getRestClient());
-                    api.deleteVersioningPolicy(_this2.state.policy.Uuid).then(function (r) {
-                        _this2.props.closeEditor();
+            pydio.UI.openConfirmDialog({
+                message: m('delete.confirm'),
+                destructive: [policy.Label],
+                validCallback: function validCallback() {
+                    _pydioHttpResourcesManager2['default'].loadClass('EnterpriseSDK').then(function (sdk) {
+                        var api = new sdk.EnterpriseConfigServiceApi(_pydioHttpApi2['default'].getRestClient());
+                        api.deleteVersioningPolicy(policy.Uuid).then(function (r) {
+                            _this2.props.closeEditor();
+                        });
                     });
-                });
-            }
+                }
+            });
         }
     }, {
         key: 'saveSource',
@@ -21818,12 +22214,12 @@ var VersionPolicyEditor = (function (_React$Component) {
             var create = _props.create;
             var readonly = _props.readonly;
             var pydio = _props.pydio;
-            var _state = this.state;
-            var loaded = _state.loaded;
-            var parameters = _state.parameters;
-            var policy = _state.policy;
-            var saveValue = _state.saveValue;
-            var m = _state.m;
+            var _state2 = this.state;
+            var loaded = _state2.loaded;
+            var parameters = _state2.parameters;
+            var policy = _state2.policy;
+            var saveValue = _state2.saveValue;
+            var m = _state2.m;
 
             var form = undefined;
             if (parameters && loaded) {
@@ -22464,6 +22860,8 @@ var _react2 = _interopRequireDefault(_react);
 
 var _materialUi = require('material-ui');
 
+var _materialUiStyles = require('material-ui/styles');
+
 var _modelWs = require('../model/Ws');
 
 var _modelWs2 = _interopRequireDefault(_modelWs);
@@ -22570,12 +22968,16 @@ var WsEditor = (function (_React$Component) {
             var reloadList = _props2.reloadList;
             var pydio = _props2.pydio;
 
-            if (confirm(pydio.MessageHash['settings.35'])) {
-                container.remove().then(function () {
-                    reloadList();
-                    closeEditor();
-                });
-            }
+            pydio.UI.openConfirmDialog({
+                message: pydio.MessageHash['settings.35'],
+                destructive: [container.getModel().Label],
+                validCallback: function validCallback() {
+                    container.remove().then(function () {
+                        reloadList();
+                        closeEditor();
+                    });
+                }
+            });
         }
     }, {
         key: 'render',
@@ -22647,6 +23049,7 @@ var WsEditor = (function (_React$Component) {
                 delButton
             );
 
+            var adminStyles = AdminComponents.AdminStyles(this.props.muiTheme.palette);
             var styles = {
                 title: {
                     fontSize: 20,
@@ -22654,7 +23057,7 @@ var WsEditor = (function (_React$Component) {
                     marginBottom: 0
                 },
                 legend: { color: '#9E9E9E', paddingTop: 10 },
-                section: { padding: '0 20px 20px', margin: 10, backgroundColor: 'white' },
+                section: _extends({ padding: '0 20px 20px', margin: 10, backgroundColor: 'white' }, adminStyles.body.block.container),
                 toggleDiv: { height: 50, display: 'flex', alignItems: 'flex-end' }
             };
 
@@ -22732,7 +23135,7 @@ var WsEditor = (function (_React$Component) {
                 ),
                 _react2['default'].createElement(
                     _materialUi.Paper,
-                    { zDepth: 1, style: styles.section },
+                    { zDepth: 0, style: styles.section },
                     _react2['default'].createElement(
                         'div',
                         { style: styles.title },
@@ -22777,7 +23180,7 @@ var WsEditor = (function (_React$Component) {
                 ),
                 _react2['default'].createElement(
                     _materialUi.Paper,
-                    { zDepth: 1, style: styles.section },
+                    { zDepth: 0, style: styles.section },
                     _react2['default'].createElement(
                         'div',
                         { style: styles.title },
@@ -22798,7 +23201,7 @@ var WsEditor = (function (_React$Component) {
                         ModernSelectField,
                         {
                             fullWidth: true,
-                            value: workspace.Attributes['DEFAULT_RIGHTS'],
+                            value: workspace.Attributes['DEFAULT_RIGHTS'] || '',
                             onChange: function (e, i, v) {
                                 workspace.Attributes['DEFAULT_RIGHTS'] = v;
                             }
@@ -22811,7 +23214,7 @@ var WsEditor = (function (_React$Component) {
                 ),
                 advanced && _react2['default'].createElement(
                     _materialUi.Paper,
-                    { zDepth: 1, style: styles.section },
+                    { zDepth: 0, style: styles.section },
                     _react2['default'].createElement(
                         'div',
                         { style: styles.title },
@@ -22874,10 +23277,11 @@ var WsEditor = (function (_React$Component) {
     return WsEditor;
 })(_react2['default'].Component);
 
+exports['default'] = WsEditor = (0, _materialUiStyles.muiThemeable)()(WsEditor);
 exports['default'] = WsEditor;
 module.exports = exports['default'];
 
-},{"../model/Ws":33,"./WsAutoComplete":25,"material-ui":"material-ui","pydio":"pydio","react":"react"}],27:[function(require,module,exports){
+},{"../model/Ws":33,"./WsAutoComplete":25,"material-ui":"material-ui","material-ui/styles":"material-ui/styles","pydio":"pydio","react":"react"}],27:[function(require,module,exports){
 /*
  * Copyright 2007-2017 Charles du Jeu - Abstrium SAS <team (at) pyd.io>
  * This file is part of Pydio.
@@ -23215,7 +23619,7 @@ Object.defineProperty(exports, '__esModule', {
 
 var _createClass = (function () { function defineProperties(target, props) { for (var i = 0; i < props.length; i++) { var descriptor = props[i]; descriptor.enumerable = descriptor.enumerable || false; descriptor.configurable = true; if ('value' in descriptor) descriptor.writable = true; Object.defineProperty(target, descriptor.key, descriptor); } } return function (Constructor, protoProps, staticProps) { if (protoProps) defineProperties(Constructor.prototype, protoProps); if (staticProps) defineProperties(Constructor, staticProps); return Constructor; }; })();
 
-var _get = function get(_x4, _x5, _x6) { var _again = true; _function: while (_again) { var object = _x4, property = _x5, receiver = _x6; _again = false; if (object === null) object = Function.prototype; var desc = Object.getOwnPropertyDescriptor(object, property); if (desc === undefined) { var parent = Object.getPrototypeOf(object); if (parent === null) { return undefined; } else { _x4 = parent; _x5 = property; _x6 = receiver; _again = true; desc = parent = undefined; continue _function; } } else if ('value' in desc) { return desc.value; } else { var getter = desc.get; if (getter === undefined) { return undefined; } return getter.call(receiver); } } };
+var _get = function get(_x5, _x6, _x7) { var _again = true; _function: while (_again) { var object = _x5, property = _x6, receiver = _x7; _again = false; if (object === null) object = Function.prototype; var desc = Object.getOwnPropertyDescriptor(object, property); if (desc === undefined) { var parent = Object.getPrototypeOf(object); if (parent === null) { return undefined; } else { _x5 = parent; _x6 = property; _x7 = receiver; _again = true; desc = parent = undefined; continue _function; } } else if ('value' in desc) { return desc.value; } else { var getter = desc.get; if (getter === undefined) { return undefined; } return getter.call(receiver); } } };
 
 function _interopRequireDefault(obj) { return obj && obj.__esModule ? obj : { 'default': obj }; }
 
@@ -23257,6 +23661,11 @@ var DataSource = (function (_Observable) {
                     } else if (p === 'Name') {
                             // Limit Name to 33 chars
                             val = _pydioUtilLang2['default'].computeStringSlug(val).replace("-", "").substr(0, 33);
+                            if (_this.existingNames && _this.existingNames.indexOf(val) > -1) {
+                                _this.nameInvalid = true;
+                            } else {
+                                _this.nameInvalid = false;
+                            }
                         } else if (p === 'folder') {
                             if (val[0] !== '/') {
                                 val = '/' + val;
@@ -23287,10 +23696,14 @@ var DataSource = (function (_Observable) {
     }]);
 
     function DataSource(model) {
+        var existingNames = arguments.length <= 1 || arguments[1] === undefined ? [] : arguments[1];
+
         _classCallCheck(this, DataSource);
 
         _get(Object.getPrototypeOf(DataSource.prototype), 'constructor', this).call(this);
         this.internalInvalid = false;
+        this.nameInvalid = false;
+        this.existingNames = existingNames;
         if (model) {
             this.model = model;
             if (!model.StorageConfiguration) {
@@ -23318,7 +23731,7 @@ var DataSource = (function (_Observable) {
     }, {
         key: 'isValid',
         value: function isValid() {
-            if (this.internalInvalid) {
+            if (this.internalInvalid || this.nameInvalid) {
                 return false;
             }
             if (this.model.StorageType === 'S3' || this.model.StorageType === 'AZURE') {
@@ -23327,6 +23740,21 @@ var DataSource = (function (_Observable) {
                 return this.model.Name && this.model.ObjectsBucket && this.model.StorageConfiguration && this.model.StorageConfiguration['jsonCredentials'];
             } else {
                 return this.model.Name && this.model.StorageConfiguration && this.model.StorageConfiguration['folder'];
+            }
+        }
+
+        /**
+         *
+         * @param translateFunc {Function} Translate function
+         * @return {*}
+         */
+    }, {
+        key: 'getNameError',
+        value: function getNameError(translateFunc) {
+            if (this.nameInvalid) {
+                return translateFunc('name.inuse');
+            } else {
+                return null;
             }
         }
     }, {
@@ -23784,7 +24212,7 @@ var Workspace = (function (_Observable) {
             this.model = new _pydioHttpRestApi.IdmWorkspace();
             this.model.Scope = _pydioHttpRestApi.IdmWorkspaceScope.constructFromObject('ADMIN');
             this.model.RootNodes = {};
-            this.internalAttributes = { "DEFAULT_RIGHTS": "r" };
+            this.internalAttributes = { "DEFAULT_RIGHTS": "" };
             this.model.PoliciesContextEditable = true;
             this.model.Attributes = JSON.stringify(this.internalAttributes);
         }
@@ -23955,8 +24383,6 @@ Object.defineProperty(exports, '__esModule', {
     value: true
 });
 
-var _extends = Object.assign || function (target) { for (var i = 1; i < arguments.length; i++) { var source = arguments[i]; for (var key in source) { if (Object.prototype.hasOwnProperty.call(source, key)) { target[key] = source[key]; } } } return target; };
-
 var _createClass = (function () { function defineProperties(target, props) { for (var i = 0; i < props.length; i++) { var descriptor = props[i]; descriptor.enumerable = descriptor.enumerable || false; descriptor.configurable = true; if ('value' in descriptor) descriptor.writable = true; Object.defineProperty(target, descriptor.key, descriptor); } } return function (Constructor, protoProps, staticProps) { if (protoProps) defineProperties(Constructor.prototype, protoProps); if (staticProps) defineProperties(Constructor, staticProps); return Constructor; }; })();
 
 var _get = function get(_x, _x2, _x3) { var _again = true; _function: while (_again) { var object = _x, property = _x2, receiver = _x3; _again = false; if (object === null) object = Function.prototype; var desc = Object.getOwnPropertyDescriptor(object, property); if (desc === undefined) { var parent = Object.getPrototypeOf(object); if (parent === null) { return undefined; } else { _x = parent; _x2 = property; _x3 = receiver; _again = true; desc = parent = undefined; continue _function; } } else if ('value' in desc) { return desc.value; } else { var getter = desc.get; if (getter === undefined) { return undefined; } return getter.call(receiver); } } };
@@ -24033,13 +24459,19 @@ var NodeCard = (function (_React$Component) {
         key: 'render',
         value: function render() {
             var _props2 = this.props;
+            var pydio = _props2.pydio;
             var dataSources = _props2.dataSources;
-            var node = _props2.node;
             var readonly = _props2.readonly;
             var oneLiner = _props2.oneLiner;
-            var adminStyles = _props2.adminStyles;
             var _props2$onClose = _props2.onClose;
             var onClose = _props2$onClose === undefined ? function () {} : _props2$onClose;
+            var _state = this.state;
+            var value = _state.value;
+            var dirty = _state.dirty;
+
+            var m = function m(id) {
+                return pydio.MessageHash['ajxp_admin.virtual.' + id] || id;
+            };
 
             var ds = {};
             if (dataSources) {
@@ -24056,7 +24488,7 @@ var NodeCard = (function (_React$Component) {
             var codeMirrorField = _react2['default'].createElement(AdminComponents.CodeMirrorField, {
                 mode: 'javascript',
                 globalScope: globalScope,
-                value: this.state.value,
+                value: value,
                 onChange: this.onChange.bind(this),
                 readOnly: readonly
             });
@@ -24073,39 +24505,29 @@ var NodeCard = (function (_React$Component) {
                     _react2['default'].createElement(
                         'div',
                         { style: { display: "flex" } },
-                        _react2['default'].createElement(_materialUi.IconButton, { iconClassName: "mdi mdi-content-save", onClick: this.save.bind(this), disabled: !this.state.dirty, tooltip: "Save" }),
+                        _react2['default'].createElement(_materialUi.IconButton, { iconClassName: "mdi mdi-content-save", onClick: this.save.bind(this), disabled: !dirty, tooltip: "Save" }),
                         _react2['default'].createElement(_materialUi.IconButton, { iconClassName: "mdi mdi-close", onClick: function () {
                                 return onClose();
                             }, tooltip: "Close" })
                     )
                 );
             } else {
-                var titleComponent = _react2['default'].createElement(
-                    'div',
-                    { style: { display: 'flex', alignItems: 'center', height: 48 } },
-                    _react2['default'].createElement(
-                        'div',
-                        { style: { flex: 1 } },
-                        node.getName()
-                    ),
-                    !readonly && _react2['default'].createElement(
-                        'div',
-                        null,
-                        _react2['default'].createElement(_materialUi.IconButton, _extends({ iconClassName: "mdi mdi-content-save", onClick: this.save.bind(this), disabled: !this.state.dirty, tooltip: "Save" }, adminStyles.props.header.iconButton)),
-                        _react2['default'].createElement(_materialUi.IconButton, _extends({ iconClassName: "mdi mdi-delete", onClick: this.remove.bind(this), tooltip: "Delete", disabled: node.getName() === 'cells' || node.getName() === 'my-files' }, adminStyles.props.header.iconButton))
-                    )
-                );
                 return _react2['default'].createElement(
-                    _materialUi.Paper,
-                    _extends({}, adminStyles.body.block.props, { style: _extends({}, adminStyles.body.block.container, { marginBottom: 10 }) }),
+                    'div',
+                    { style: { backgroundColor: '#f5f5f5', paddingBottom: 24 } },
                     _react2['default'].createElement(
                         'div',
-                        { style: adminStyles.body.block.headerFull },
-                        titleComponent
+                        { style: { padding: readonly ? '12px 24px' : '0 24px', fontWeight: 500, display: 'flex', alignItems: 'center' } },
+                        _react2['default'].createElement(
+                            'div',
+                            null,
+                            'Template Path Code'
+                        ),
+                        !readonly && _react2['default'].createElement(_materialUi.IconButton, { iconClassName: "mdi mdi-content-save", onClick: this.save.bind(this), disabled: !dirty, tooltip: m('save'), style: { width: 36, height: 36, padding: 8 }, iconStyle: { fontSize: 20, color: 'rgba(0,0,0,.33)' } })
                     ),
                     _react2['default'].createElement(
                         'div',
-                        null,
+                        { style: { margin: '12px 24px 0 24px', border: '1px solid #e0e0e0' } },
                         codeMirrorField
                     )
                 );

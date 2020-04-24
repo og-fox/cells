@@ -89,15 +89,20 @@ class VersionPolicyEditor extends React.Component{
     }
 
     deleteSource(){
-        const {m} = this.state;
-        if(confirm(m('delete.confirm'))){
-            ResourcesManager.loadClass('EnterpriseSDK').then(sdk => {
-                const api = new sdk.EnterpriseConfigServiceApi(PydioApi.getRestClient());
-                api.deleteVersioningPolicy(this.state.policy.Uuid).then((r) =>{
-                    this.props.closeEditor();
+        const {m, policy} = this.state;
+        const {pydio} = this.props;
+        pydio.UI.openConfirmDialog({
+            message:m('delete.confirm'),
+            destructive:[policy.Label],
+            validCallback:() => {
+                ResourcesManager.loadClass('EnterpriseSDK').then(sdk => {
+                    const api = new sdk.EnterpriseConfigServiceApi(PydioApi.getRestClient());
+                    api.deleteVersioningPolicy(policy.Uuid).then((r) =>{
+                        this.props.closeEditor();
+                    });
                 });
-            });
-        }
+            }
+        });
     }
 
     saveSource(){

@@ -3,6 +3,7 @@ package config
 import (
 	"fmt"
 	"io/ioutil"
+	"log"
 	"path/filepath"
 	"strings"
 
@@ -35,7 +36,7 @@ var (
 )
 
 func init() {
-	configsMigrations = append(configsMigrations, renameServices1, deleteConfigKeys, setDefaultConfig, forceDefaultConfig, dsnRemoveAllowNativePassword, updateLeCaURL)
+	configsMigrations = append(configsMigrations, renameServices1, deleteConfigKeys, setDefaultConfig, forceDefaultConfig, dsnRemoveAllowNativePassword, updateLeCaURL, movePydioConnectors)
 }
 
 // UpgradeConfigsIfRequired applies all registered configMigration functions
@@ -99,7 +100,7 @@ func setDefaultConfig(config *Config) (bool, error) {
 	}
 	external := config.Get("defaults", "url").String("")
 	oAuthFrontendConfig := map[string]interface{}{
-		"client_id":                 "cells-frontend",
+		"client_id":                 DefaultOAuthClientID,
 		"client_name":               "CellsFrontend Application",
 		"grant_types":               []string{"authorization_code", "refresh_token"},
 		"redirect_uris":             []string{external + "/auth/callback"},
@@ -233,7 +234,7 @@ func forceDefaultConfig(config *Config) (bool, error) {
 	}
 
 	oAuthFrontendConfig := map[string]interface{}{
-		"client_id":                 "cells-frontend",
+		"client_id":                 DefaultOAuthClientID,
 		"client_name":               "CellsFrontend Application",
 		"grant_types":               []string{"authorization_code", "refresh_token"},
 		"redirect_uris":             []string{external + "/auth/callback"},
@@ -250,7 +251,7 @@ func forceDefaultConfig(config *Config) (bool, error) {
 		var addCellsFrontend = true
 		for _, static := range data {
 			if clientID, ok := static["client_id"].(string); addCellsFrontend && ok {
-				if clientID == "cells-frontend" {
+				if clientID == DefaultOAuthClientID {
 					addCellsFrontend = false
 				}
 			}
@@ -327,6 +328,67 @@ func migrateVault(vault *Config, defaultConfig *Config) bool {
 	}
 
 	return save
+}
+
+func movePydioConnectors(config *Config) (bool, error) {
+
+	var connectors []map[string]interface{}
+
+	key := "services/" + common.SERVICE_WEB_NAMESPACE_ + common.SERVICE_OAUTH + "/connectors"
+	path := strings.Split(key, "/")
+
+	err := config.Get(path...).Scan(&connectors)
+	if err != nil {
+		return false, err
+	}
+
+	if connectors == nil {
+		return false, nil
+	}
+
+	var changed = false
+	for _, connector := range connectors {
+		typ, ok := connector["type"].(string)
+		if !ok {
+			log.Println("Connector type missing, skipping")
+			continue
+		}
+		if typ == "pydio" {
+			c, ok := connector["config"].(map[string]interface{})
+			if !ok {
+				continue
+			}
+
+			pydioconnectors, ok := c["pydioconnectors"].([]interface{})
+			if !ok {
+				continue
+			}
+
+			for _, p := range pydioconnectors {
+				pydioconnector := p.(map[string]interface{})
+				typ, ok := pydioconnector["type"].(string)
+				if !ok {
+					continue
+				}
+
+				if typ != "pydio-api" {
+					connectors = append(connectors, pydioconnector)
+					changed = true
+				}
+			}
+
+			// deleting pydio connector config
+			delete(c, "pydioconnectors")
+		}
+	}
+
+	if !changed {
+		return false, nil
+	}
+
+	config.Set(connectors, path...)
+
+	return true, nil
 }
 
 func stringSliceEqual(a, b []string) bool {
