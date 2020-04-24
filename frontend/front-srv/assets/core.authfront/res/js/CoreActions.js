@@ -18,19 +18,16 @@
  * The latest code can be found at <https://pydio.com>.
  */
 
-import {muiThemeable, getMuiTheme, darkBaseTheme} from 'material-ui/styles';
-import {TextField, MuiThemeProvider, FlatButton, Checkbox, FontIcon,
-    MenuItem, SelectField, IconButton, IconMenu, Toggle} from 'material-ui';
+import Pydio from 'pydio';
 import PydioApi from "pydio/http/api";
+import {muiThemeable, getMuiTheme, darkBaseTheme} from 'material-ui/styles';
+import {TextField, MuiThemeProvider, FlatButton, Checkbox, FontIcon, MenuItem, SelectField, IconButton, IconMenu, Toggle} from 'material-ui';
 import {TokenServiceApi, RestResetPasswordRequest} from "pydio/http/rest-api";
 
 
-import qs from 'query-string'
-
-let pydio = window.pydio;
-
 const LanguagePicker = () => {
-    const items = []
+    const items = [];
+    const pydio = Pydio.getInstance();
     
     pydio.listLanguagesWithCallback((key, label, current) => items.push(
         <MenuItem
@@ -38,7 +35,7 @@ const LanguagePicker = () => {
             value={key}
             rightIcon={current ? <FontIcon className="mdi mdi-check"/> : null}
         />
-    ))
+    ));
     
     return (
         <IconMenu
@@ -49,11 +46,13 @@ const LanguagePicker = () => {
             {items}
         </IconMenu>
     );
-}
+};
 
 let LoginDialogMixin = {
 
     getInitialState(){
+        const pydio = Pydio.getInstance();
+
         return {
             globalParameters: pydio.Parameters,
             authParameters: pydio.getPluginConfigs('auth'),
@@ -64,6 +63,7 @@ let LoginDialogMixin = {
 
     postLoginData(restClient){
 
+        const pydio = Pydio.getInstance();
         const passwordOnly = this.state.globalParameters.get('PASSWORD_AUTH_ONLY');
         let login;
         if(passwordOnly){
@@ -116,7 +116,7 @@ let LoginPasswordDialog = React.createClass({
 
     fireForgotPassword(e){
         e.stopPropagation();
-        pydio.getController().fireAction(this.state.authParameters.get("FORGOT_PASSWORD_ACTION"));
+        Pydio.getInstance().getController().fireAction(this.state.authParameters.get("FORGOT_PASSWORD_ACTION"));
     },
 
     useBlur(){
@@ -124,6 +124,7 @@ let LoginPasswordDialog = React.createClass({
     },
 
     getButtons(){
+        const pydio = Pydio.getInstance();
         const passwordOnly = this.state.globalParameters.get('PASSWORD_AUTH_ONLY');
         const secureLoginForm = passwordOnly || this.state.authParameters.get('SECURE_LOGIN_FORM');
 
@@ -312,19 +313,26 @@ class Callbacks{
 
     static sessionLogout(){
 
-        if(Pydio.getInstance().Parameters.get("PRELOG_USER")){
+        const pydio = Pydio.getInstance();
+
+        if(pydio.Parameters.get("PRELOG_USER")){
             return;
         }
+        const url = pydio.getFrontendUrl();
+        const target = `${url.protocol}//${url.host}/logout`;
 
         PydioApi.getRestClient().sessionLogout()
             .then(() => pydio.loadXmlRegistry(null, null, null))
-            .catch((e) => window.location.href = pydio.Parameters.get('FRONTEND_URL') + '/logout');
+            .catch((e) => {
+                window.location.href = target;
+            });
 
     }
 
     static loginPassword(manager, args = []) {
 
-        if(Pydio.getInstance().Parameters.get("PRELOG_USER")){
+        const pydio = Pydio.getInstance();
+        if(pydio.Parameters.get("PRELOG_USER")){
             return;
         }
 
@@ -346,13 +354,13 @@ const ResetPasswordRequire = React.createClass({
 
     statics: {
         open : () => {
-            pydio.UI.openComponentInModal('AuthfrontCoreActions', 'ResetPasswordRequire', {blur: true});
+            Pydio.getInstance().UI.openComponentInModal('AuthfrontCoreActions', 'ResetPasswordRequire', {blur: true});
         }
     },
 
     getDefaultProps(){
         return {
-            dialogTitle: pydio.MessageHash['gui.user.1'],
+            dialogTitle: Pydio.getInstance().MessageHash['gui.user.1'],
             dialogIsModal: true,
             dialogSize:'sm'
         };
@@ -363,7 +371,7 @@ const ResetPasswordRequire = React.createClass({
     },
 
     cancel(){
-        pydio.Controller.fireAction('login');
+        Pydio.getInstance().Controller.fireAction('login');
     },
 
     submit(){
@@ -418,13 +426,13 @@ const ResetPasswordDialog = React.createClass({
 
     statics: {
         open : () => {
-            pydio.UI.openComponentInModal('AuthfrontCoreActions', 'ResetPasswordDialog', {blur:true});
+            Pydio.getInstance().UI.openComponentInModal('AuthfrontCoreActions', 'ResetPasswordDialog', {blur:true});
         }
     },
 
     getDefaultProps(){
         return {
-            dialogTitle: pydio.MessageHash['gui.user.1'],
+            dialogTitle: Pydio.getInstance().MessageHash['gui.user.1'],
             dialogIsModal: true,
             dialogSize:'sm'
         };
@@ -444,7 +452,8 @@ const ResetPasswordDialog = React.createClass({
 
         if(this.state.valueSubmitted){
             this.props.onDismiss();
-            window.location.href = pydio.Parameters.get('FRONTEND_URL') + '/login';
+            const url = pydio.getFrontendUrl();
+            window.location.href = `${url.protocol}//${url.host}/login`;
             return;
         }
 
@@ -462,7 +471,7 @@ const ResetPasswordDialog = React.createClass({
     },
 
     componentDidMount(){
-        Promise.resolve(require('pydio').requireLib('form', true)).then(()=>{
+        Promise.resolve(Pydio.requireLib('form', true)).then(()=>{
             this.setState({formLoaded: true});
         });
     },
