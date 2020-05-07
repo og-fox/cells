@@ -159,7 +159,7 @@ func (a *FrontendHandler) FrontSessionGet(req *restful.Request, rsp *restful.Res
 		sessionName = sessionName + "-" + h
 	}
 
-	session, err := frontend.GetSessionStore().Get(req.Request, sessionName)
+	session, err := frontend.GetSessionStore(req.Request).Get(req.Request, sessionName)
 	if err != nil && session == nil {
 		service.RestError500(req, rsp, fmt.Errorf("could not load session store: %s", err))
 		return
@@ -196,7 +196,7 @@ func (a *FrontendHandler) FrontSession(req *restful.Request, rsp *restful.Respon
 		sessionName = sessionName + "-" + h
 	}
 
-	session, err := frontend.GetSessionStore().Get(req.Request, sessionName)
+	session, err := frontend.GetSessionStore(req.Request).Get(req.Request, sessionName)
 	if err != nil && session == nil {
 		service.RestError500(req, rsp, fmt.Errorf("could not load session store: %s", err))
 		return
@@ -242,7 +242,7 @@ func (a *FrontendHandler) FrontSessionDel(req *restful.Request, rsp *restful.Res
 		sessionName = sessionName + "-" + h
 	}
 
-	session, err := frontend.GetSessionStore().Get(req.Request, sessionName)
+	session, err := frontend.GetSessionStore(req.Request).Get(req.Request, sessionName)
 	if err != nil && session == nil {
 		service.RestError500(req, rsp, fmt.Errorf("could not load session store: %s", err))
 		return
