@@ -2,7 +2,6 @@ package auth
 
 import (
 	"context"
-	"fmt"
 	"net/url"
 	"regexp"
 	"strconv"
@@ -42,7 +41,7 @@ func InitRegistry(dao sql.DAO) {
 
 		db := sqlx.NewDb(dao.DB(), dao.Driver())
 
-		reg = driver.NewRegistrySQL().WithConfig(conf)
+		reg = driver.NewRegistrySQL().WithConfig(defaultConf)
 		r := reg.(*driver.RegistrySQL).WithDB(db)
 		r.Init()
 
@@ -76,13 +75,13 @@ func InitRegistry(dao sql.DAO) {
 			return
 		}
 
-		store := oauth2.NewFositeSQLStore(db, r, conf)
+		store := oauth2.NewFositeSQLStore(db, r, defaultConf)
 		store.CreateSchemas(dao.Driver())
 
 		RegisterOryProvider(r.OAuth2Provider())
 	})
 
-	if err := syncClients(context.Background(), reg.ClientManager(), conf.Clients()); err != nil {
+	if err := syncClients(context.Background(), reg.ClientManager(), defaultConf.Clients()); err != nil {
 		return
 	}
 
@@ -97,6 +96,10 @@ func OnRegistryInit(f func()) {
 
 func GetRegistry() driver.Registry {
 	return reg
+}
+
+func DuplicateRegistryForConf(c ConfigurationProvider) driver.Registry {
+	return driver.NewRegistrySQL().WithConfig(c)
 }
 
 func GetRegistrySQL() *driver.RegistrySQL {
@@ -138,7 +141,6 @@ func syncClients(ctx context.Context, s client.Storage, c common.Scanner) error 
 		}
 
 		cli.RedirectURIs = redirectURIs
-		fmt.Println("Redirects: ", redirectURIs)
 
 		if errors.Cause(err) == sqlcon.ErrNoRows {
 			// Let's create it

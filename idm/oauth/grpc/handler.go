@@ -43,6 +43,7 @@ import (
 	"github.com/pydio/cells/common/config"
 	"github.com/pydio/cells/common/log"
 	pauth "github.com/pydio/cells/common/proto/auth"
+	servicecontext "github.com/pydio/cells/common/service/context"
 )
 
 // Handler for the plugin
@@ -93,7 +94,9 @@ func (h *Handler) CreateLogin(ctx context.Context, in *pauth.CreateLoginRequest,
 	csrf := strings.Replace(uuid.New(), "-", "", -1)
 
 	// Generate the request URL
-	iu := urlx.AppendPaths(auth.GetConfigurationProvider().IssuerURL(), auth.GetConfigurationProvider().OAuth2AuthURL())
+	hostName, _ := servicecontext.HttpMetaFromGrpcContext(ctx, servicecontext.HttpMetaHostname)
+	provider := auth.GetConfigurationProvider(hostName)
+	iu := urlx.AppendPaths(provider.IssuerURL(), provider.OAuth2AuthURL())
 
 	sessionID := uuid.New()
 
@@ -198,7 +201,8 @@ func (h *Handler) CreateConsent(ctx context.Context, in *pauth.CreateConsentRequ
 		return fmt.Errorf(session.Error.Name)
 	}
 
-	if session.RequestedAt.Add(auth.GetConfigurationProvider().ConsentRequestMaxAge()).Before(time.Now()) {
+	hostName, _ := servicecontext.HttpMetaFromGrpcContext(ctx, servicecontext.HttpMetaHostname)
+	if session.RequestedAt.Add(auth.GetConfigurationProvider(hostName).ConsentRequestMaxAge()).Before(time.Now()) {
 		return errors.WithStack(fosite.ErrRequestUnauthorized.WithDebug("The login request has expired, please try again."))
 	}
 
@@ -320,7 +324,8 @@ func (h *Handler) CreateAuthCode(ctx context.Context, in *pauth.CreateAuthCodeRe
 	}
 
 	var accessTokenKeyID string
-	if auth.GetConfigurationProvider().AccessTokenStrategy() == "jwt" {
+	hostName, _ := servicecontext.HttpMetaFromGrpcContext(ctx, servicecontext.HttpMetaHostname)
+	if auth.GetConfigurationProvider(hostName).AccessTokenStrategy() == "jwt" {
 		accessTokenKeyID, err = auth.GetRegistry().AccessTokenJWTStrategy().GetPublicKeyID(ctx)
 		if err != nil {
 			return err
@@ -331,7 +336,7 @@ func (h *Handler) CreateAuthCode(ctx context.Context, in *pauth.CreateAuthCodeRe
 
 	claims := &jwt.IDTokenClaims{
 		Subject:     session.ConsentRequest.SubjectIdentifier,
-		Issuer:      strings.TrimRight(auth.GetConfigurationProvider().IssuerURL().String(), "/") + "/",
+		Issuer:      strings.TrimRight(auth.GetConfigurationProvider(hostName).IssuerURL().String(), "/") + "/",
 		IssuedAt:    time.Now().UTC(),
 		AuthTime:    time.Now().UTC(),
 		RequestedAt: time.Now().UTC(),
@@ -369,6 +374,7 @@ func (h *Handler) CreateAuthCode(ctx context.Context, in *pauth.CreateAuthCodeRe
 func (h *Handler) CreateLogout(ctx context.Context, in *pauth.CreateLogoutRequest, out *pauth.CreateLogoutResponse) error {
 
 	challenge := strings.Replace(uuid.New(), "-", "", -1)
+	hostName, _ := servicecontext.HttpMetaFromGrpcContext(ctx, servicecontext.HttpMetaHostname)
 
 	// Set the session
 	if err := auth.GetRegistry().ConsentManager().CreateLogoutRequest(
@@ -381,7 +387,7 @@ func (h *Handler) CreateLogout(ctx context.Context, in *pauth.CreateLogoutReques
 			Verifier:    uuid.New(),
 			RPInitiated: false,
 
-			PostLogoutRedirectURI: auth.GetConfigurationProvider().LogoutRedirectURL().String(),
+			PostLogoutRedirectURI: auth.GetConfigurationProvider(hostName).LogoutRedirectURL().String(),
 		},
 	); err != nil {
 		return errors.WithStack(err)
