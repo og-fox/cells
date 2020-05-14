@@ -425,7 +425,7 @@ var PydioApi = (function () {
                     httpOptions: {
                         timeout: PydioApi.getMultipartUploadTimeout()
                     },
-                    endpoint: url.replace('/io', '')
+                    endpoint: url
                 });
                 var managed = new ManagedMultipart({
                     params: _extends({}, params, { Body: file }),
