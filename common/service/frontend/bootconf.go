@@ -5,7 +5,6 @@ import (
 	"crypto/md5"
 	"encoding/hex"
 	"strconv"
-	"strings"
 
 	"github.com/micro/go-config/reader"
 	"github.com/pborman/uuid"
@@ -37,7 +36,6 @@ type BootConf struct {
 	ENDPOINT_REST_API            string
 	ENDPOINT_S3_GATEWAY          string
 	ENDPOINT_WEBSOCKET           string
-	FRONTEND_URL                 string
 	PUBLIC_BASEURI               string
 	ZipEnabled                   bool                   `json:"zipEnabled"`
 	MultipleFilesDownloadEnabled bool                   `json:"multipleFilesDownloadEnabled"`
@@ -93,9 +91,6 @@ func numberFromIntOrString(value reader.Value, def int) int {
 
 func ComputeBootConf(pool *PluginsPool, showVersion ...bool) *BootConf {
 
-	url := config.Get("defaults", "url").String("")
-	wsUrl := strings.Replace(strings.Replace(url, "https", "wss", -1), "http", "ws", -1)
-
 	lang := config.Get("frontend", "plugin", "core.pydio", "DEFAULT_LANGUAGE").String("en-us")
 	clientSession := numberFromIntOrString(config.Get("frontend", "plugin", "gui.ajax", "CLIENT_TIMEOUT"), 24)
 	timeoutWarn := numberFromIntOrString(config.Get("frontend", "plugin", "gui.ajax", "CLIENT_TIMEOUT_WARN"), 3)
@@ -111,10 +106,9 @@ func ComputeBootConf(pool *PluginsPool, showVersion ...bool) *BootConf {
 
 	b := &BootConf{
 		AjxpResourcesFolder:          "plug/gui.ajax/res",
-		ENDPOINT_REST_API:            url + "/a",
-		ENDPOINT_S3_GATEWAY:          url + "/io",
-		ENDPOINT_WEBSOCKET:           wsUrl + "/ws/event",
-		FRONTEND_URL:                 url,
+		ENDPOINT_REST_API:            "/a",
+		ENDPOINT_S3_GATEWAY:          "/io",
+		ENDPOINT_WEBSOCKET:           "/ws/event",
 		PUBLIC_BASEURI:               "/public",
 		ZipEnabled:                   true,
 		MultipleFilesDownloadEnabled: true,

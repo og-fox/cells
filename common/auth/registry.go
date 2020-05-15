@@ -2,11 +2,14 @@ package auth
 
 import (
 	"context"
+	"net/url"
 	"regexp"
 	"strconv"
+	"strings"
 	"sync"
 
 	"github.com/jmoiron/sqlx"
+	"github.com/ory/fosite"
 	"github.com/ory/hydra/client"
 	"github.com/ory/hydra/consent"
 	"github.com/ory/hydra/driver"
@@ -15,10 +18,13 @@ import (
 	"github.com/ory/hydra/x"
 	"github.com/ory/x/sqlcon"
 	"github.com/pkg/errors"
+	"github.com/sirupsen/logrus"
 	"go.uber.org/zap"
 
 	"github.com/pydio/cells/common"
+	"github.com/pydio/cells/common/config"
 	"github.com/pydio/cells/common/log"
+	"github.com/pydio/cells/common/proto/install"
 	"github.com/pydio/cells/common/sql"
 )
 
@@ -33,8 +39,10 @@ func InitRegistry(dao sql.DAO) {
 	once.Do(func() {
 
 		db := sqlx.NewDb(dao.DB(), dao.Driver())
+		l := logrus.New()
+		l.SetLevel(logrus.PanicLevel)
 
-		reg = driver.NewRegistrySQL().WithConfig(conf)
+		reg = driver.NewRegistrySQL().WithConfig(defaultConf).WithLogger(l)
 		r := reg.(*driver.RegistrySQL).WithDB(db)
 		r.Init()
 
@@ -68,13 +76,13 @@ func InitRegistry(dao sql.DAO) {
 			return
 		}
 
-		store := oauth2.NewFositeSQLStore(db, r, conf)
+		store := oauth2.NewFositeSQLStore(db, r, defaultConf)
 		store.CreateSchemas(dao.Driver())
 
 		RegisterOryProvider(r.OAuth2Provider())
 	})
 
-	if err := syncClients(context.Background(), reg.ClientManager(), conf.Clients()); err != nil {
+	if err := syncClients(context.Background(), reg.ClientManager(), defaultConf.Clients()); err != nil {
 		return
 	}
 
@@ -89,6 +97,12 @@ func OnRegistryInit(f func()) {
 
 func GetRegistry() driver.Registry {
 	return reg
+}
+
+func DuplicateRegistryForConf(c ConfigurationProvider) driver.Registry {
+	l := logrus.New()
+	l.SetLevel(logrus.PanicLevel)
+	return driver.NewRegistrySQL().WithConfig(c).WithLogger(l)
 }
 
 func GetRegistrySQL() *driver.RegistrySQL {
@@ -115,13 +129,18 @@ func syncClients(ctx context.Context, s client.Storage, c common.Scanner) error 
 	if err != nil {
 		return err
 	}
+	sites, _ := config.LoadSites()
 
 	for _, cli := range clients {
 		_, err := s.GetClient(ctx, cli.GetID())
 
 		var redirectURIs []string
 		for _, r := range cli.RedirectURIs {
-			redirectURIs = append(redirectURIs, rangeFromStr(r)...)
+			tt := rangeFromStr(r)
+			for _, t := range tt {
+				vv := varsFromStr(t, sites)
+				redirectURIs = append(redirectURIs, vv...)
+			}
 		}
 
 		cli.RedirectURIs = redirectURIs
@@ -183,6 +202,34 @@ func rangeFromStr(s string) []string {
 
 		min = min + 1
 	}
+	return res
+}
 
+func varsFromStr(s string, sites []*install.ProxyConfig) []string {
+	var res []string
+	defaultBind := ""
+	if len(sites) > 0 {
+		defaultBind = sites[0].GetDefaultBindURL()
+	}
+	if strings.Contains(s, "#default_bind#") {
+		res = append(res, strings.ReplaceAll(s, "#default_bind#", defaultBind))
+	} else if strings.Contains(s, "#binds...#") {
+		for _, si := range sites {
+			for _, b := range si.GetBindURLs() {
+				res = append(res, strings.ReplaceAll(s, "#binds...#", b))
+			}
+		}
+	} else if strings.Contains(s, "#insecure_binds...") {
+		for _, si := range sites {
+			for _, a := range si.GetBindURLs() {
+				u, e := url.Parse(a)
+				if e == nil && !fosite.IsRedirectURISecure(u) {
+					res = append(res, strings.ReplaceAll(s, "#insecure_binds...#", a))
+				}
+			}
+		}
+	} else {
+		res = append(res, s)
+	}
 	return res
 }

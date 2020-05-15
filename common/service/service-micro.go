@@ -21,7 +21,6 @@
 package service
 
 import (
-	"fmt"
 	"time"
 
 	"github.com/micro/go-micro"
@@ -29,7 +28,6 @@ import (
 	"github.com/micro/go-plugins/server/grpc"
 
 	"github.com/pydio/cells/common"
-	"github.com/pydio/cells/common/config"
 	"github.com/pydio/cells/common/log"
 	defaults "github.com/pydio/cells/common/micro"
 	"github.com/pydio/cells/common/registry"
@@ -51,12 +49,8 @@ func WithMicro(f func(micro.Service) error) ServiceOption {
 			if o.Port != "" {
 				srvOpts = append(srvOpts, server.Address(":"+o.Port))
 			}
-			// pydio.gateway.grpc specific stuff
-			if o.Name == common.SERVICE_GATEWAY_GRPC {
-				if tls := config.GetTLSServerConfig("proxy"); tls != nil {
-					fmt.Println("[TLS] Activating TLS on " + o.Name)
-					srvOpts = append(srvOpts, grpc.AuthTLS(tls))
-				}
+			if o.TLSConfig != nil {
+				srvOpts = append(srvOpts, grpc.AuthTLS(o.TLSConfig))
 			}
 			srv := defaults.NewServer(srvOpts...)
 			s.Options().Micro.Init(

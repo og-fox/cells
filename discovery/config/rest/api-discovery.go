@@ -26,6 +26,8 @@ import (
 	"strings"
 	"time"
 
+	"github.com/micro/go-micro/registry"
+
 	servicecontext "github.com/pydio/cells/common/service/context"
 
 	"github.com/ory/ladon"
@@ -43,7 +45,6 @@ import (
 
 	"github.com/emicklei/go-restful"
 	"github.com/micro/go-micro/errors"
-	"github.com/micro/go-micro/registry"
 	"github.com/spf13/viper"
 
 	"github.com/pydio/cells/common"
@@ -101,10 +102,14 @@ func (s *Handler) EndpointsDiscovery(req *restful.Request, resp *restful.Respons
 	endpointResponse.Endpoints["websocket"] = fmt.Sprintf("%s://%s/ws/event", wsProtocol, urlParsed.Host)
 	endpointResponse.Endpoints["frontend"] = fmt.Sprintf("%s://%s", httpProtocol, urlParsed.Host)
 
-	external := viper.Get("grpc_external")
-	externalSet := external != nil && external.(string) != ""
-	if !ssl || externalSet {
-		// Detect GRPC Service Ports
+	ss, _ := config.LoadSites()
+	external := viper.GetString("grpc_external")
+	if external != "" {
+		// in case of HTTP, SERVICE_GATEWAY should already be bound to grpc_external
+		// Otherwise the proxy is exposing grpc_external
+		endpointResponse.Endpoints["grpc"] = external
+	} else if len(ss) == 1 && !ss[0].HasTLS() {
+		// Pure HTTP and no grpc_external : detect GRPC Service Ports
 		var grpcPorts []string
 		if ss, e := registry.GetService(common.SERVICE_GATEWAY_GRPC); e == nil {
 			for _, s := range ss {
@@ -125,9 +130,8 @@ func (s *Handler) EndpointsDiscovery(req *restful.Request, resp *restful.Respons
 // OpenApiDiscovery prints out the Swagger Spec in JSON format
 func (s *Handler) OpenApiDiscovery(req *restful.Request, resp *restful.Response) {
 
-	cfg := config.Default()
-	u := cfg.Get("defaults", "url").String("")
-	p, _ := url.Parse(u)
+	p := req.Request.URL
+	p.Path = ""
 
 	jsonSpec := service.SwaggerSpec()
 	jsonSpec.Spec().Host = p.Host
@@ -141,8 +145,8 @@ func (s *Handler) OpenApiDiscovery(req *restful.Request, resp *restful.Response)
 			Type:             "oauth2",
 			Description:      "Login using OAuth2 code flow",
 			Flow:             "accessCode",
-			AuthorizationURL: u + "/oidc/oauth2/auth",
-			TokenURL:         u + "/oidc/oauth2/token",
+			AuthorizationURL: p.String() + "/oidc/oauth2/auth",
+			TokenURL:         p.String() + "/oidc/oauth2/token",
 		},
 	}
 	jsonSpec.Spec().SecurityDefinitions = map[string]*spec.SecurityScheme{"oauth2": scheme}
@@ -276,6 +280,7 @@ func (s *Handler) SchedulerActionFormDiscovery(req *restful.Request, rsp *restfu
 				{servicecontext.HttpMetaUserAgent: servicecontext.HttpMetaUserAgent},
 				{servicecontext.HttpMetaContentType: servicecontext.HttpMetaContentType},
 				{servicecontext.HttpMetaProtocol: servicecontext.HttpMetaProtocol},
+				{servicecontext.HttpMetaHostname: servicecontext.HttpMetaHostname},
 				{servicecontext.HttpMetaRequestMethod: servicecontext.HttpMetaRequestMethod},
 				{servicecontext.HttpMetaRequestURI: servicecontext.HttpMetaRequestURI},
 				{servicecontext.HttpMetaCookiesString: servicecontext.HttpMetaCookiesString},

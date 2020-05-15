@@ -104,13 +104,13 @@ func setDefaultConfig(config *Config) (bool, error) {
 		"http://localhost:3000/servers/callback", // SYNC UX DEBUG PORT
 		"http://localhost:[3636-3666]/servers/callback",
 	}
-	external := config.Get("defaults", "url").String("")
+
 	oAuthFrontendConfig := map[string]interface{}{
 		"client_id":                 DefaultOAuthClientID,
 		"client_name":               "CellsFrontend Application",
 		"grant_types":               []string{"authorization_code", "refresh_token"},
-		"redirect_uris":             []string{external + "/auth/callback"},
-		"post_logout_redirect_uris": []string{external + "/auth/logout"},
+		"redirect_uris":             []string{"#default_bind#/auth/callback"},
+		"post_logout_redirect_uris": []string{"#default_bind#/auth/logout"},
 		"response_types":            []string{"code", "token", "id_token"},
 		"scope":                     "openid email profile pydio offline",
 	}
@@ -129,7 +129,7 @@ func setDefaultConfig(config *Config) (bool, error) {
 		"grant_types": []string{"authorization_code", "refresh_token"},
 		"redirect_uris": []string{
 			"http://localhost:3000/servers/callback",
-			external + "/oauth2/oob",
+			"#binds...#/oauth2/oob",
 		},
 		"response_types": []string{"code", "token", "id_token"},
 		"scope":          "openid email profile pydio offline",
@@ -198,103 +198,8 @@ func updateLeCaURL(config *Config) (bool, error) {
 }
 
 func forceDefaultConfig(config *Config) (bool, error) {
-	var save bool
-	oauthSrv := common.SERVICE_WEB_NAMESPACE_ + common.SERVICE_OAUTH
-	srvUrl := config.Get("defaults", "url").String("")
-	if srvUrl == "" {
-		return false, nil
-	}
-
-	external := config.Get("defaults", "url").String("")
-
-	// Easy finding usage of srvUrl
-	configKeys := map[string]interface{}{
-		"services/" + oauthSrv + "/issuer": srvUrl + "/oidc/",
-	}
-
-	for path, def := range configKeys {
-		paths := strings.Split(path, "/")
-		val := config.Get(paths...)
-		var data interface{}
-		if val.Scan(&data); data != def {
-			fmt.Printf("[Configs] Upgrading: setting default config %s to %v\n", path, def)
-			config.Set(def, paths...)
-			save = true
-		}
-	}
-
-	configSliceKeys := map[string][]string{
-		"services/" + oauthSrv + "/insecureRedirects": []string{external + "/auth/callback"},
-	}
-
-	for path, def := range configSliceKeys {
-		paths := strings.Split(path, "/")
-		val := config.Get(paths...)
-		var data []string
-
-		if val.Scan(&data); !stringSliceEqual(data, def) {
-			fmt.Printf("[Configs] Upgrading: setting default config %s to %v\n", path, def)
-			config.Set(def, paths...)
-			save = true
-		}
-	}
-
-	oAuthFrontendConfig := map[string]interface{}{
-		"client_id":                 DefaultOAuthClientID,
-		"client_name":               "CellsFrontend Application",
-		"grant_types":               []string{"authorization_code", "refresh_token"},
-		"redirect_uris":             []string{external + "/auth/callback"},
-		"post_logout_redirect_uris": []string{external + "/auth/logout"},
-		"response_types":            []string{"code", "token", "id_token"},
-		"scope":                     "openid email profile pydio offline",
-	}
-
-	// Special case for srvUrl/oauth2/oob url
-	statics := config.Get("services", oauthSrv, "staticClients")
-	var data []map[string]interface{}
-	if err := statics.Scan(&data); err == nil {
-		var saveStatics bool
-		var addCellsFrontend = true
-		for _, static := range data {
-			if clientID, ok := static["client_id"].(string); addCellsFrontend && ok {
-				if clientID == DefaultOAuthClientID {
-					addCellsFrontend = false
-				}
-			}
-
-			for _, n := range []string{"redirect_uris", "post_logout_redirect_uris"} {
-				if redirs, ok := static[n].([]interface{}); ok {
-					var newRedirs []string
-					for _, redir := range redirs {
-						if strings.HasSuffix(redir.(string), "/oauth2/oob") && redir.(string) != srvUrl+"/oauth2/oob" {
-							newRedirs = append(newRedirs, srvUrl+"/oauth2/oob")
-							saveStatics = true
-						} else if strings.HasSuffix(redir.(string), "/auth/callback") && redir.(string) != srvUrl+"/auth/callback" {
-							newRedirs = append(newRedirs, srvUrl+"/auth/callback")
-							saveStatics = true
-						} else if strings.HasSuffix(redir.(string), "/auth/logout") && redir.(string) != srvUrl+"/auth/logout" {
-							newRedirs = append(newRedirs, srvUrl+"/auth/logout")
-							saveStatics = true
-						} else {
-							newRedirs = append(newRedirs, redir.(string))
-						}
-					}
-					static[n] = newRedirs
-				}
-			}
-		}
-		if addCellsFrontend {
-			data = append([]map[string]interface{}{oAuthFrontendConfig}, data...)
-			saveStatics = true
-		}
-		if saveStatics {
-			fmt.Println("[Configs] Upgrading: updating staticClients")
-			config.Set(data, "services", oauthSrv, "staticClients")
-			save = true
-		}
-	}
-
-	return save, nil
+	// TODO : WAS UPDATING ALL CLIENTS
+	return false, nil
 }
 
 // dsnRemoveAllowNativePassword removes this part from default DSN

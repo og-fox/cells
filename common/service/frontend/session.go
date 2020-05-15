@@ -3,7 +3,6 @@ package frontend
 import (
 	"encoding/base64"
 	"net/http"
-	"net/url"
 	"strings"
 
 	"github.com/gorilla/securecookie"
@@ -22,7 +21,7 @@ const (
 
 var sessionStore *sessions.CookieStore
 
-func GetSessionStore() sessions.Store {
+func GetSessionStore(req *http.Request) sessions.Store {
 	if sessionStore == nil {
 		val := config.Get("frontend", "session", "secureKey").String("")
 		var key []byte
@@ -40,13 +39,12 @@ func GetSessionStore() sessions.Store {
 			MaxAge:   60 * SessionTimeoutMinutes,
 			HttpOnly: true,
 		}
-		if config.Get("cert", "proxy", "ssl").Bool(false) {
+		// TODO :  DOES NOT WORK EMPTY Req.URL.Scheme
+		if req.URL.Scheme == "https" {
 			sessionStore.Options.Secure = true
 		}
-		urlVal := config.Get("defaults", "url").String("")
-		if parsed, e := url.Parse(urlVal); e == nil {
-			sessionStore.Options.Domain = strings.Split(parsed.Host, ":")[0]
-		}
+		// TODO :  DOES NOT WORK EMPTY Req.URL.Host
+		sessionStore.Options.Domain = req.URL.Hostname()
 	}
 	return sessionStore
 }
@@ -75,7 +73,7 @@ func NewSessionWrapper(h http.Handler, excludes ...string) http.Handler {
 		if h, ok := r.Header["X-Pydio-Minisite"]; ok {
 			sessionName = sessionName + "-" + strings.Join(h, "")
 		}
-		session, err := GetSessionStore().Get(r, sessionName)
+		session, err := GetSessionStore(r).Get(r, sessionName)
 		if err != nil && !strings.Contains(err.Error(), "securecookie: the value is not valid") {
 			log.Logger(r.Context()).Error("Cannot retrieve session", zap.Error(err))
 		}
