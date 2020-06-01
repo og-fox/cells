@@ -28,6 +28,8 @@ import (
 	"strings"
 	"time"
 
+	index2 "github.com/pydio/cells/common/sql/index"
+
 	"github.com/micro/go-micro/client"
 	"github.com/micro/go-micro/errors"
 	"github.com/micro/go-micro/metadata"
@@ -38,6 +40,7 @@ import (
 	"github.com/pydio/cells/common/proto/object"
 	"github.com/pydio/cells/common/proto/tree"
 	servicecontext "github.com/pydio/cells/common/service/context"
+	cindex "github.com/pydio/cells/common/sql/index"
 	"github.com/pydio/cells/common/utils/mtree"
 	"github.com/pydio/cells/data/source/index"
 	"github.com/pydio/cells/data/source/index/sessions"
@@ -62,10 +65,10 @@ func getDAO(ctx context.Context, session string) index.DAO {
 			return dao.(index.DAO)
 		}
 
-		return index.NewDAOCache(session, servicecontext.GetDAO(ctx).(index.DAO)).(index.DAO)
+		return index.NewDAOCache(session, cindex.NewHiddenFileDuplicateRemoverDAO(servicecontext.GetDAO(ctx).(index.DAO))).(index.DAO)
 	}
 
-	return servicecontext.GetDAO(ctx).(index.DAO)
+	return cindex.NewHiddenFileDuplicateRemoverDAO(servicecontext.GetDAO(ctx).(index.DAO))
 }
 
 // NewTreeServer factory.
@@ -472,11 +475,6 @@ func (s *TreeServer) UpdateNode(ctx context.Context, req *tree.UpdateNodeRequest
 	if pathFrom, _, err = dao.Path(reqFromPath, false); err != nil {
 		return errors.InternalServerError(name, "cannot resolve pathFrom %s, cause: %s", reqFromPath, err.Error())
 	}
-
-	if pathTo, _, err = dao.Path(reqToPath, true); err != nil {
-		return errors.InternalServerError(name, "cannot resolve pathTo %s, cause: %s", reqToPath, err.Error())
-	}
-
 	if pathFrom == nil {
 		return errors.NotFound(name, "Could not retrieve node %s", req.From.Path)
 	}
@@ -484,21 +482,30 @@ func (s *TreeServer) UpdateNode(ctx context.Context, req *tree.UpdateNodeRequest
 		return errors.NotFound(name, "Could not retrieve node %s", req.From.Path)
 	}
 
-	if nodeTo, err = dao.GetNode(pathTo); err != nil {
-		return errors.NotFound(name, "Could not retrieve node %s", req.From.Path)
-	}
+	if cache, o := dao.(index2.CacheDAO); o {
 
-	// To Avoid Duplicate error when using a Cache DAO - Flush now and after delete.
-	dao.Flush(false)
+		pathTo, nodeTo, err = cache.PathCreateNoAdd(reqToPath)
 
-	// First of all, we delete the existing node
-	if nodeTo != nil {
-		if err = dao.DelNode(nodeTo); err != nil {
-			return errors.InternalServerError(name, "Could not delete former to node at %s", req.To.Path)
+	} else {
+		if pathTo, _, err = dao.Path(reqToPath, true); err != nil {
+			return errors.InternalServerError(name, "cannot resolve pathTo %s, cause: %s", reqToPath, err.Error())
 		}
-	}
+		if nodeTo, err = dao.GetNode(pathTo); err != nil {
+			return errors.NotFound(name, "Could not retrieve node %s", req.From.Path)
+		}
 
-	dao.Flush(false)
+		// Legacy : to Avoid Duplicate error when using a CacheDAO - Flush now and after delete.
+		dao.Flush(false)
+
+		// First of all, we delete the existing node
+		if nodeTo != nil {
+			if err = dao.DelNode(nodeTo); err != nil {
+				return errors.InternalServerError(name, "Could not delete former to node at %s", req.To.Path)
+			}
+		}
+
+		dao.Flush(false)
+	}
 
 	nodeFrom.Path = reqFromPath
 	nodeTo.Path = reqToPath

