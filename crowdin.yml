@@ -3,7 +3,7 @@ files:
     translation: /%original_path%/%locale%.all.json
     languages_mapping:
       locale:
-        ar-SA: ar-sa
+        ar: ar-sa
         de: de
         es-ES: es-es
         fr: fr
@@ -22,7 +22,7 @@ files:
     translation: /%original_path%/%locale%.all.json
     languages_mapping:
       locale:
-        ar-SA: ar-sa
+        ar: ar-sa
         de: de
         es-ES: es-es
         fr: fr
@@ -41,7 +41,7 @@ files:
     translation: /%original_path%/%locale%.all.json
     languages_mapping:
       locale:
-        ar-SA: ar-sa
+        ar: ar-sa
         de: de
         es-ES: es-es
         fr: fr
@@ -60,7 +60,7 @@ files:
     translation: /%original_path%/%locale%.all.json
     languages_mapping:
       locale:
-        ar-SA: ar-sa
+        ar: ar-sa
         de: de
         es-ES: es-es
         fr: fr
